@@ -4,62 +4,50 @@ This backend is responsible for the agent-based music curation for the Mood Vibe
 
 ---
 
-## Architecture Flow
+## Architecture
 
-The application follows a specific architectural flow where FastAPI acts as the central orchestrator and the Agent acts as a recommendation engine.
+The backend is designed with a clean, modular architecture to separate concerns:
 
-1.  **Frontend -> FastAPI**: The user sends a natural language request (a "mood") to the `/chat` endpoint.
-2.  **FastAPI -> Agent**: FastAPI passes the user's text to the Agent for processing.
-3.  **Agent's Process**:
-    *   The Agent analyzes the request. If it needs more context (e.g., for personalized recommendations), it uses a tool like `get_user_info`.
-    *   This tool call is a request back to FastAPI. FastAPI then fetches the required data from Spotify (e.g., user's top artists) and passes it back to the Agent.
-    *   With full context, the Agent queries its local song database (SQLite) and assembles a list of recommended song IDs and scores.
-4.  **Agent -> FastAPI**: The Agent returns a final JSON object to FastAPI. This JSON is a direct command, like `{"function_to_call": "play_next", "arguments": {"songs": [...], "scores": {...}}}`.
-5.  **FastAPI -> Spotify**: FastAPI parses the JSON and executes the command, calling the Spotify API to add the recommended songs to the user's queue.
-6.  **FastAPI -> Frontend**: FastAPI confirms the action to the user.
+- **`main.py`**: The main application entry point. It initializes the FastAPI app, adds middleware (like sessions), and includes the routers. It only contains the core endpoints like `/login`, `/callback`, and `/chat`.
+
+- **`routers/`**: This directory holds the API endpoints exposed to the client. For example, `routers/spotify.py` contains all endpoints for direct playback control (`/spotify/play`, `/spotify/pause`, etc.).
+
+- **`services/`**: This layer contains the core business logic. We have two main services:
+    - **`spotify_service.py`**: Handles all communication with the Spotify API (fetching user context, adding songs to queue, etc.). It also preprocesses the raw data from Spotify into a clean format.
+    - **`database_service.py`**: Will handle all communication with the local DuckDB song database (searching for songs by mood, genre, etc.).
+
+- **`agent_manager.py`**: The brain of the agent operation. It receives context from the `/chat` endpoint, formats the prompt (from `prompts.py`), calls the agent (LLM), and returns the agent's plan.
+
+- **`prompts.py`**: A dedicated file to store and manage the large text prompts sent to the agent.
 
 ---
 
-## To Do
+## Project Status
 
-### Track 1: Core Functionality (MVP)
+### ✅ Completed
 
-#### 1. Environment & Authentication
-- [ ] **Environment Setup:**
-    - [ ] Create and activate a Python virtual environment.
-    - [ ] Install dependencies from `requirements.txt`.
-    - [ ] Set up the `.env` file with Spotify and Google Cloud credentials.
-- [ ] **Spotify Authentication:**
-    - [ ] Implement the OAuth 2.0 flow with `/login` and `/callback` endpoints in FastAPI.
-    - [ ] Store the user's access token securely (e.g., in a session).
+- **Authentication**: Full Spotify OAuth 2.0 flow with secure session management for tokens.
+- **Modular Architecture**: Refactored the application into a clean structure with `routers` and `services`.
+- **Playback Control API**: A full suite of endpoints (`/spotify/play`, `/pause`, `/skip`, `/search`, etc.) for direct control over Spotify playback.
+- **Rich User Context**: Created a `get_user_context` function that fetches and **preprocesses** a user's top tracks, top artists, and recently played songs into a clean, agent-ready format.
+- **Initial Agent Structure**: Set up `agent_manager.py` and `prompts.py` in preparation for agent integration.
 
-#### 2. Agent & FastAPI Core
-- [ ] **Agent Setup:**
-    - [ ] Initialize a basic agent structure.
-    - [ ] Implement agent's ability to access a local SQLite database of songs.
-- [ ] **Agent Tools (`tools.py`):**
-    - [ ] Create a `get_user_info` tool definition. This tool will not contain logic, but will signal to FastAPI that user context is needed.
-- [ ] **FastAPI `/chat` Endpoint:**
-    - [ ] Create the `/chat` endpoint that receives the user's text.
-    - [ ] Implement the logic to call the Agent.
-    - [ ] Add the capability to handle a `get_user_info` tool call from the agent by fetching data from Spotify and passing it back to the agent.
-- [ ] **Plan Execution:**
-    - [ ] Implement the logic for FastAPI to receive the final JSON plan from the Agent (e.g., `{"function_to_call": "play_next", ...}`).
-    - [ ] Create the corresponding `play_next` function in FastAPI that calls the Spotify API to add songs to the queue.
+### 🚀 Next Steps: Agent & Database Implementation
 
-### Track 2: Multi-Agent System & Intelligence
+1.  **Database Setup**:
+    - [ ] Add `duckdb` to `requirements.txt`.
+    - [ ] Create `database_service.py`.
+    - [ ] Implement a connection to the DuckDB file.
+    - [ ] Implement a `find_songs_by_mood` function that queries the local database based on audio features (e.g., `valence`, `energy`).
 
-- [ ] **Sub-Agents (Personas):**
-    - [ ] **Conservative Agent:** Recommends songs based on the user's top artists.
-    - [ ] **Explorer Agent:** Recommends less-known artists that match the mood.
-    - [ ] **Popular Songs Agent:** Recommends popular songs that match the mood.
-- [ ] **Orchestrator Agent:**
-    - [ ] Implement a top-level agent that receives the user's mood and context.
-    - [ ] This agent will decide which sub-agents to call and how to weigh their recommendations to generate the final song list.
-- [ ] **Feedback Loop:**
-    - [ ] Implement a mechanism for the agent to receive feedback (e.g., when a user skips or removes a song).
-    - [ ] Use this feedback to refine future recommendations.
+2.  **Agent Integration**:
+    - [ ] Update `agent_manager.py` to correctly format the preprocessed `user_profile` and `queue` context into the prompt string.
+    - [ ] Update `prompts.py` to include the new `search_local_database` tool for the agent to use.
 
+3.  **Plan Execution**:
+    - [ ] In the `/chat` endpoint, implement the logic to parse the JSON plan returned by the agent.
+    - [ ] Execute the plan by calling the appropriate functions from `spotify_service.py` and `database_service.py`.
 
-* Importante:
-al final el agente lo unico que es es una funcione entre chat y play next.
+4.  **Advanced (Future)**:
+    - [ ] Implement specialist agents (`MoodAgent`, `ScoutAgent`) within the `agent_manager`.
+    - [ ] Implement a feedback loop for the agent to learn from user actions (e.g., skipping a song).

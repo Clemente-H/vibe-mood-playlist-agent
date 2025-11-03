@@ -32,7 +32,7 @@ Simple, beautiful, and actually gets you.
 ## Stack
 
 - **Google Cloud Run** - Serverless deployment
-- **Agent Development Kit (ADK)** - Multi-agent system
+- **Agent Development Kit (ADK)** - Multi-agent system (this is our category) (🤝 AI Agents Category)
 - **Gemini** - Mood analysis and music matching
 - **Spotify Web API** - Playback control
 

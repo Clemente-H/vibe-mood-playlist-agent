@@ -1,0 +1,6 @@
+spotipy
+fastapi
+uvicorn[standard]
+python-dotenv
+google-adk
+google-cloud-aiplatform

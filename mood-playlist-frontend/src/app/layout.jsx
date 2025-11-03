@@ -1,4 +1,4 @@
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono, Permanent_Marker } from "next/font/google";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -11,8 +11,14 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const titlefont = Permanent_Marker({
+  variable: "--font-handwriting",
+  subsets: ["latin"],
+  weight: ["400"],
+});
+
 export const metadata = {
-  title: "Mood.FM",
+  title: "Vibe.FM",
   description: "A music agent that understands your emotions",
 };
 
@@ -20,7 +26,7 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} ${titlefont.variable} antialiased`}
       >
         {children}
       </body>

@@ -38,7 +38,7 @@ export function ChatDock({ messageHandler }) {
             placeholder="Type your message..."
             value={message}
             onChange={(e) => setMessage(e.target.value)}
-            className="flex-1 border-white/30 bg-white/20 text-white placeholder:text-white/60 focus-visible:ring-white/50"
+            className="flex-1 border-white/30 bg-white/20 text-white font-bold placeholder:text-white/60 focus-visible:ring-white/50"
           />
           <Button type="submit" size="icon" className="bg-white/20 text-white hover:bg-white/30">
             <Send className="h-4 w-4" />

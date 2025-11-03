@@ -28,7 +28,10 @@ The backend is designed with a clean, modular architecture to separate concerns:
 
 - **Authentication**: Full Spotify OAuth 2.0 flow with secure session management for tokens.
 - **Modular Architecture**: Refactored the application into a clean structure with `routers` and `services`.
-- **Playback Control API**: A full suite of endpoints (`/spotify/play`, `/pause`, `/skip`, `/search`, etc.) for direct control over Spotify playback.
+- **Playback Control API**: A full suite of endpoints for direct control over Spotify playback and playlist management:
+    - `/spotify/play`, `/spotify/pause`, `/spotify/stop`, `/spotify/skip`, `/spotify/previous`
+    - `/spotify/search`, `/spotify/queue_add`, `/spotify/current_playback`
+    - `/spotify/create_playlist_from_queue`, `/spotify/add_to_likes`, `/spotify/user_playlists`
 - **Rich User Context**: Created a `get_user_context` function that fetches and **preprocesses** a user's top tracks, top artists, and recently played songs into a clean, agent-ready format.
 - **Initial Agent Structure**: Set up `agent_manager.py` and `prompts.py` in preparation for agent integration.
 

@@ -110,3 +110,51 @@ def get_current_queue(token_info: dict):
         return queue
     except Exception as e:
         return {"error": f"Error fetching queue: {e}"}
+
+def stop_playback(token_info: dict):
+    sp = spotipy.Spotify(auth=token_info["access_token"])
+    try:
+        sp.pause_playback()
+        return {"message": "Playback stopped."}
+    except Exception as e:
+        return {"error": f"Error stopping playback: {e}"}
+
+def create_playlist_from_queue(token_info: dict, playlist_name: str):
+    sp = spotipy.Spotify(auth=token_info["access_token"])
+    try:
+        user_id = sp.current_user()["id"]
+        queue_items = sp.queue()["queue"]
+        track_uris = [item["uri"] for item in queue_items]
+
+        if not track_uris:
+            return {"message": "Queue is empty, no playlist created."}
+
+        playlist = sp.user_playlist_create(user=user_id, name=playlist_name, public=False)
+        sp.playlist_add_items(playlist_id=playlist["id"], items=track_uris)
+        return {"message": f"Playlist '{playlist_name}' created with {len(track_uris)} songs."}
+    except Exception as e:
+        return {"error": f"Error creating playlist from queue: {e}"}
+
+def add_track_to_likes(token_info: dict, track_uri: str):
+    sp = spotipy.Spotify(auth=token_info["access_token"])
+    try:
+        sp.current_user_saved_tracks_add([track_uri])
+        return {"message": f"Added {track_uri} to liked songs."}
+    except Exception as e:
+        return {"error": f"Error adding track to liked songs: {e}"}
+
+def get_user_playlists(token_info: dict):
+    sp = spotipy.Spotify(auth=token_info["access_token"])
+    try:
+        playlists = sp.current_user_playlists(limit=50) # Limit to 50 for now
+        return {"playlists": playlists["items"]}
+    except Exception as e:
+        return {"error": f"Error fetching user playlists: {e}"}
+
+def previous_track(token_info: dict):
+    sp = spotipy.Spotify(auth=token_info["access_token"])
+    try:
+        sp.previous_track()
+        return {"message": "Skipped to previous track."}
+    except Exception as e:
+        return {"error": f"Error skipping to previous track: {e}"}

@@ -4,9 +4,13 @@ from pydantic import BaseModel
 from music_agent.tools.spotify_tools import get_access_token
 from music_agent.agent import root_agent
 from dotenv import load_dotenv
-import spotipy
 import os
 from starlette.middleware.sessions import SessionMiddleware
+
+# Import the new router
+from routers import spotify
+from spotify_service import get_user_context, get_current_queue
+from agent_manager import run_agent_with_context
 
 load_dotenv()
 
@@ -18,14 +22,11 @@ app.add_middleware(
     secret_key=os.getenv("SECRET_KEY"),
 )
 
+# Include the spotify router
+app.include_router(spotify.router)
+
 class ChatRequest(BaseModel):
     message: str
-
-class PlayRequest(BaseModel):
-    song_uri: str
-
-class SearchRequest(BaseModel):
-    query: str
 
 @app.get("/")
 def read_root():
@@ -53,104 +54,33 @@ async def chat(request: Request, chat_request: ChatRequest):
     if not token_info:
         return {"error": "User not authenticated"}
 
-    response = await root_agent.run_async(
-        chat_request.message,
-        tool_context={"token_info": token_info}
-    )
-    print("Agent response:", response)
-    return {"response": response}
+    # --- Caching Logic for User Profile ---
+    user_profile = request.session.get("user_profile")
+    if not user_profile:
+        print("--- No profile in session, fetching... ---")
+        user_profile = get_user_context(token_info)
+        request.session["user_profile"] = user_profile
+    else:
+        print("--- Found profile in session cache. ---")
+    # -------------------------------------
 
-@app.post("/tools/get_user_info")
-def get_user_info(request: Request):
-    token_info = request.session.get("token_info")
-    if not token_info:
-        return {"error": "User not authenticated"}
+    # Always get the real-time queue
+    current_queue = get_current_queue(token_info)
 
-    sp = spotipy.Spotify(auth=token_info["access_token"])
-    try:
-        top_tracks = sp.current_user_top_tracks(limit=10, time_range="short_term")
-        return {"top_tracks": top_tracks["items"]}
-    except Exception as e:
-        return {"error": f"Error fetching user info: {e}"}
+    # Combine cached profile with real-time queue for full context
+    full_context = {
+        "user_profile": user_profile,
+        "queue": current_queue
+    }
 
-@app.post("/play")
-async def play_song(request: Request, play_request: PlayRequest):
-    token_info = request.session.get("token_info")
-    if not token_info:
-        return {"error": "User not authenticated"}
+    # Run the agent with the full context
+    agent_plan = await run_agent_with_context(chat_request.message, full_context)
 
-    sp = spotipy.Spotify(auth=token_info["access_token"])
-    try:
-        sp.add_to_queue(play_request.song_uri)
-        sp.start_playback()
-        return {"message": f"Added {play_request.song_uri} to queue and started playback."}
-    except Exception as e:
-        return {"error": f"Error playing song: {e}"}
+    # For now, just print and return the plan
+    print("--- AGENT PLAN RECEIVED ---")
+    print(agent_plan)
+    print("---------------------------")
 
-@app.post("/pause")
-async def pause_playback(request: Request):
-    token_info = request.session.get("token_info")
-    if not token_info:
-        return {"error": "User not authenticated"}
+    # TODO: Implement the plan execution logic here
 
-    sp = spotipy.Spotify(auth=token_info["access_token"])
-    try:
-        sp.pause_playback()
-        return {"message": "Playback paused."}
-    except Exception as e:
-        return {"error": f"Error pausing playback: {e}"}
-
-@app.post("/skip")
-async def skip_track(request: Request):
-    token_info = request.session.get("token_info")
-    if not token_info:
-        return {"error": "User not authenticated"}
-
-    sp = spotipy.Spotify(auth=token_info["access_token"])
-    try:
-        sp.next_track()
-        return {"message": "Skipped to next track."}
-    except Exception as e:
-        return {"error": f"Error skipping track: {e}"}
-
-@app.post("/queue_add")
-async def add_to_queue(request: Request, play_request: PlayRequest):
-    token_info = request.session.get("token_info")
-    if not token_info:
-        return {"error": "User not authenticated"}
-
-    sp = spotipy.Spotify(auth=token_info["access_token"])
-    try:
-        sp.add_to_queue(play_request.song_uri)
-        return {"message": f"Added {play_request.song_uri} to queue."}
-    except Exception as e:
-        return {"error": f"Error adding to queue: {e}"}
-
-@app.get("/current_playback")
-async def get_current_playback(request: Request):
-    token_info = request.session.get("token_info")
-    if not token_info:
-        return {"error": "User not authenticated"}
-
-    sp = spotipy.Spotify(auth=token_info["access_token"])
-    try:
-        current_playback = sp.current_playback()
-        if current_playback:
-            return {"current_playback": current_playback}
-        else:
-            return {"message": "No track currently playing."}
-    except Exception as e:
-        return {"error": f"Error fetching current playback: {e}"}
-
-@app.post("/search")
-async def search_track(request: Request, search_request: SearchRequest):
-    token_info = request.session.get("token_info")
-    if not token_info:
-        return {"error": "User not authenticated"}
-
-    sp = spotipy.Spotify(auth=token_info["access_token"])
-    try:
-        results = sp.search(q=search_request.query, type="track", limit=10)
-        return {"results": results["tracks"]["items"]}
-    except Exception as e:
-        return {"error": f"Error searching track: {e}"}
+    return {"status": "Plan received", "plan": agent_plan}

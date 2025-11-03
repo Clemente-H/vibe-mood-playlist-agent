@@ -1,3 +1,6 @@
 *.DS_Store
 .env
 *.pyc
+backend/data_spotify/*
+backend/.cache
+Cloud Run Hackathon_ Build applications with Cloud Run - Devpost.html

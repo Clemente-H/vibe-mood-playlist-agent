@@ -3,20 +3,55 @@ import spotipy
 # This service file contains the core logic for interacting with the Spotify API.
 # It is used by the routers to expose functionality via HTTP endpoints and by the agent flow.
 
+def _preprocess_user_context(context: dict) -> dict:
+    processed_context = {}
+
+    # Process top tracks
+    if context.get("top_tracks"):
+        processed_context["top_tracks"] = [
+            {
+                "name": track["name"],
+                "artist": track["artists"][0]["name"],
+                "uri": track["uri"],
+            }
+            for track in context["top_tracks"]
+        ]
+
+    # Process top artists
+    if context.get("top_artists"):
+        processed_context["top_artists"] = [
+            {
+                "name": artist["name"],
+                "genres": artist["genres"],
+            }
+            for artist in context["top_artists"]
+        ]
+
+    # Process recently played
+    if context.get("recently_played"):
+        processed_context["recently_played"] = [
+            {
+                "name": item["track"]["name"],
+                "artist": item["track"]["artists"][0]["name"],
+                "uri": item["track"]["uri"],
+            }
+            for item in context["recently_played"]
+        ]
+
+    return processed_context
+
 def get_user_context(token_info: dict):
     sp = spotipy.Spotify(auth=token_info["access_token"])
     try:
-        top_tracks = sp.current_user_top_tracks(limit=20, time_range="medium_term")["items"]
-        top_artists = sp.current_user_top_artists(limit=20, time_range="medium_term")["items"]
-        recently_played = sp.current_user_recently_played(limit=20)["items"]
-
-        return {
-            "top_tracks": top_tracks,
-            "top_artists": top_artists,
-            "recently_played": recently_played
+        raw_context = {
+            "top_tracks": sp.current_user_top_tracks(limit=20, time_range="medium_term")["items"],
+            "top_artists": sp.current_user_top_artists(limit=20, time_range="medium_term")["items"],
+            "recently_played": sp.current_user_recently_played(limit=20)["items"],
         }
+        return _preprocess_user_context(raw_context)
     except Exception as e:
         return {"error": f"Error fetching user context: {e}"}
+    
 def add_to_queue(token_info: dict, song_uri: str):
     sp = spotipy.Spotify(auth=token_info["access_token"])
     try:

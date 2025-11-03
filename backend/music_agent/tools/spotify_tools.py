@@ -9,7 +9,7 @@ def get_spotify_oauth():
         client_id=os.getenv("SPOTIPY_CLIENT_ID"),
         client_secret=os.getenv("SPOTIPY_CLIENT_SECRET"),
         redirect_uri=os.getenv("SPOTIPY_REDIRECT_URI"),
-        scope="user-read-playback-state user-modify-playback-state playlist-read-private user-read-currently-playing",
+        scope="user-read-playback-state user-modify-playback-state user-read-currently-playing user-top-read user-read-recently-played playlist-read-private",
     )
 
 def get_access_token(code: str) -> dict:

@@ -1,16 +1,15 @@
 from fastapi import FastAPI, Request
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
-from music_agent.tools.spotify_tools import get_access_token
-from music_agent.agent import root_agent
+
 from dotenv import load_dotenv
 import os
 from starlette.middleware.sessions import SessionMiddleware
 
 # Import the new router
 from routers import spotify
-from spotify_service import get_user_context, get_current_queue
-from agent_manager import run_agent_with_context
+from spotify_service import get_user_context, get_current_queue, get_spotify_oauth, get_access_token
+#from agents.agent_manager import run_agent_with_context
 
 load_dotenv()
 
@@ -34,8 +33,6 @@ def read_root():
 
 @app.get("/login")
 def login():
-    # The login logic remains the same, but we need to get the auth_url from the tool
-    from music_agent.tools.spotify_tools import get_spotify_oauth
     oauth = get_spotify_oauth()
     auth_url = oauth.get_authorize_url()
     return RedirectResponse(auth_url)
@@ -47,6 +44,11 @@ def callback(request: Request):
     request.session["token_info"] = token_info
     # Redirect to the frontend, which will now have the session cookie
     return RedirectResponse("http://localhost:3000/")
+
+@app.get("/logout")
+def logout(request: Request):
+    request.session.clear()
+    return RedirectResponse("/")
 
 @app.post("/chat")
 async def chat(request: Request, chat_request: ChatRequest):

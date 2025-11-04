@@ -1,7 +1,27 @@
 import spotipy
+import os
+from spotipy.oauth2 import SpotifyOAuth
 
 # This service file contains the core logic for interacting with the Spotify API.
 # It is used by the routers to expose functionality via HTTP endpoints and by the agent flow.
+
+# --- Authentication Functions ---
+
+def get_spotify_oauth():
+    """Creates and returns a SpotifyOAuth object."""
+    return SpotifyOAuth(
+        client_id=os.getenv("SPOTIPY_CLIENT_ID"),
+        client_secret=os.getenv("SPOTIPY_CLIENT_SECRET"),
+        redirect_uri=os.getenv("SPOTIPY_REDIRECT_URI"),
+        scope="user-read-playback-state user-modify-playback-state user-read-currently-playing user-top-read user-read-recently-played playlist-read-private",
+    )
+
+def get_access_token(code: str) -> dict:
+    """Gets the access token from the authorization code."""
+    oauth = get_spotify_oauth()
+    return oauth.get_access_token(code)
+
+# --- Data Fetching and Preprocessing ---
 
 def _preprocess_user_context(context: dict) -> dict:
     processed_context = {}

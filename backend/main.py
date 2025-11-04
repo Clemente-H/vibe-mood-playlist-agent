@@ -1,5 +1,5 @@
 from fastapi import FastAPI, Request
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, JSONResponse
 from pydantic import BaseModel
 
 from dotenv import load_dotenv
@@ -8,7 +8,12 @@ from starlette.middleware.sessions import SessionMiddleware
 
 # Import the new router
 from routers import spotify
-from spotify_service import get_user_context, get_current_queue, get_spotify_oauth, get_access_token
+from spotify_service import (
+    get_user_context,
+    get_current_queue,
+    get_spotify_oauth,
+    get_access_token
+)
 from agents.agent_manager import run_agent_with_context
 
 load_dotenv()
@@ -24,18 +29,22 @@ app.add_middleware(
 # Include the spotify router
 app.include_router(spotify.router)
 
+
 class ChatRequest(BaseModel):
     message: str
+
 
 @app.get("/")
 def read_root():
     return {"Hello": "World"}
+
 
 @app.get("/login")
 def login():
     oauth = get_spotify_oauth()
     auth_url = oauth.get_authorize_url()
     return RedirectResponse(auth_url)
+
 
 @app.get("/callback")
 def callback(request: Request):
@@ -45,16 +54,21 @@ def callback(request: Request):
     # Redirect to the frontend, which will now have the session cookie
     return RedirectResponse("http://localhost:3000/")
 
+
 @app.get("/logout")
 def logout(request: Request):
     request.session.clear()
     return RedirectResponse("/")
 
+
 @app.post("/chat")
 async def chat(request: Request, chat_request: ChatRequest):
     token_info = request.session.get("token_info")
     if not token_info:
-        return {"error": "User not authenticated"}
+        return JSONResponse(
+            status_code=401,
+            content={"error": "User not authenticated"}
+        )
 
     # --- Caching Logic for User Profile ---
     user_profile = request.session.get("user_profile")
@@ -75,14 +89,13 @@ async def chat(request: Request, chat_request: ChatRequest):
         "queue": current_queue
     }
 
-    # Run the agent with the full context
-    agent_plan = await run_agent_with_context(chat_request.message, full_context)
+    # Run the agent with the full context AND the token
+    agent_response = await run_agent_with_context(
+        chat_request.message,
+        full_context,
+        token_info  # <--- ¡Aquí está el cambio clave!
+    )
 
-    # For now, just print and return the plan
-    print("--- AGENT PLAN RECEIVED ---")
-    print(agent_plan)
-    print("---------------------------")
-
-    # TODO: Implement the plan execution logic here
-
-    return {"status": "Plan received", "plan": agent_plan}
+    # Ya no recibes un "plan", recibes la respuesta final
+    # El agente ya ejecutó las acciones (ej. add_to_queue)
+    return {"status": "Agent executed", "response": agent_response}

@@ -2,26 +2,36 @@ import spotipy
 import os
 from spotipy.oauth2 import SpotifyOAuth
 
-# This service file contains the core logic for interacting with the Spotify API.
-# It is used by the routers to expose functionality via HTTP endpoints and by the agent flow.
+# This service file contains the core logic for interacting with the
+# Spotify API. It is used by the routers to expose functionality via
+# HTTP endpoints and by the agent flow.
 
 # --- Authentication Functions ---
 
+
 def get_spotify_oauth():
     """Creates and returns a SpotifyOAuth object."""
+    scope = (
+        "user-read-playback-state user-modify-playback-state "
+        "user-read-currently-playing user-top-read "
+        "user-read-recently-played playlist-read-private"
+    )
     return SpotifyOAuth(
         client_id=os.getenv("SPOTIPY_CLIENT_ID"),
         client_secret=os.getenv("SPOTIPY_CLIENT_SECRET"),
         redirect_uri=os.getenv("SPOTIPY_REDIRECT_URI"),
-        scope="user-read-playback-state user-modify-playback-state user-read-currently-playing user-top-read user-read-recently-played playlist-read-private",
+        scope=scope,
     )
+
 
 def get_access_token(code: str) -> dict:
     """Gets the access token from the authorization code."""
     oauth = get_spotify_oauth()
     return oauth.get_access_token(code)
 
+
 # --- Data Fetching and Preprocessing ---
+
 
 def _preprocess_user_context(context: dict) -> dict:
     processed_context = {}
@@ -58,20 +68,58 @@ def _preprocess_user_context(context: dict) -> dict:
             for item in context["recently_played"]
         ]
 
+    # Process playlists
+    if context.get("playlists"):
+        processed_context["playlists"] = [
+            {
+                "name": playlist["name"],
+                "id": playlist["id"],
+                "total_tracks": playlist["tracks"]["total"],
+                "public": playlist.get("public", False),
+                "owner": playlist["owner"]["display_name"]
+            }
+            for playlist in context["playlists"]
+        ]
+
+    # Extract top genres from top artists
+    if context.get("top_artists"):
+        all_genres = []
+        for artist in context["top_artists"]:
+            all_genres.extend(artist.get("genres", []))
+        # Count genre frequency
+        from collections import Counter
+        genre_counts = Counter(all_genres)
+        processed_context["top_genres"] = [
+            genre for genre, count in genre_counts.most_common(10)
+        ]
+
     return processed_context
+
 
 def get_user_context(token_info: dict):
     sp = spotipy.Spotify(auth=token_info["access_token"])
     try:
         raw_context = {
-            "top_tracks": sp.current_user_top_tracks(limit=20, time_range="medium_term")["items"],
-            "top_artists": sp.current_user_top_artists(limit=20, time_range="medium_term")["items"],
-            "recently_played": sp.current_user_recently_played(limit=20)["items"],
+            "top_tracks": sp.current_user_top_tracks(
+                limit=20,
+                time_range="medium_term"
+            )["items"],
+            "top_artists": sp.current_user_top_artists(
+                limit=20,
+                time_range="medium_term"
+            )["items"],
+            "recently_played": sp.current_user_recently_played(
+                limit=20
+            )["items"],
+            "playlists": sp.current_user_playlists(
+                limit=50
+            )["items"],
         }
         return _preprocess_user_context(raw_context)
     except Exception as e:
         return {"error": f"Error fetching user context: {e}"}
-    
+
+
 def add_to_queue(token_info: dict, song_uri: str):
     sp = spotipy.Spotify(auth=token_info["access_token"])
     try:
@@ -79,6 +127,7 @@ def add_to_queue(token_info: dict, song_uri: str):
         return {"message": f"Added {song_uri} to queue."}
     except Exception as e:
         return {"error": f"Error adding to queue: {e}"}
+
 
 def start_playback(token_info: dict):
     sp = spotipy.Spotify(auth=token_info["access_token"])
@@ -88,6 +137,7 @@ def start_playback(token_info: dict):
     except Exception as e:
         return {"error": f"Error starting playback: {e}"}
 
+
 def pause_playback(token_info: dict):
     sp = spotipy.Spotify(auth=token_info["access_token"])
     try:
@@ -96,6 +146,7 @@ def pause_playback(token_info: dict):
     except Exception as e:
         return {"error": f"Error pausing playback: {e}"}
 
+
 def next_track(token_info: dict):
     sp = spotipy.Spotify(auth=token_info["access_token"])
     try:
@@ -103,6 +154,7 @@ def next_track(token_info: dict):
         return {"message": "Skipped to next track."}
     except Exception as e:
         return {"error": f"Error skipping track: {e}"}
+
 
 def get_current_playback(token_info: dict):
     sp = spotipy.Spotify(auth=token_info["access_token"])
@@ -115,6 +167,7 @@ def get_current_playback(token_info: dict):
     except Exception as e:
         return {"error": f"Error fetching current playback: {e}"}
 
+
 def search_track(token_info: dict, query: str):
     sp = spotipy.Spotify(auth=token_info["access_token"])
     try:
@@ -122,6 +175,7 @@ def search_track(token_info: dict, query: str):
         return {"results": results["tracks"]["items"]}
     except Exception as e:
         return {"error": f"Error searching track: {e}"}
+
 
 def get_current_queue(token_info: dict):
     sp = spotipy.Spotify(auth=token_info["access_token"])
@@ -131,6 +185,7 @@ def get_current_queue(token_info: dict):
     except Exception as e:
         return {"error": f"Error fetching queue: {e}"}
 
+
 def stop_playback(token_info: dict):
     sp = spotipy.Spotify(auth=token_info["access_token"])
     try:
@@ -138,6 +193,7 @@ def stop_playback(token_info: dict):
         return {"message": "Playback stopped."}
     except Exception as e:
         return {"error": f"Error stopping playback: {e}"}
+
 
 def create_playlist_from_queue(token_info: dict, playlist_name: str):
     sp = spotipy.Spotify(auth=token_info["access_token"])
@@ -149,11 +205,20 @@ def create_playlist_from_queue(token_info: dict, playlist_name: str):
         if not track_uris:
             return {"message": "Queue is empty, no playlist created."}
 
-        playlist = sp.user_playlist_create(user=user_id, name=playlist_name, public=False)
+        playlist = sp.user_playlist_create(
+            user=user_id,
+            name=playlist_name,
+            public=False
+        )
         sp.playlist_add_items(playlist_id=playlist["id"], items=track_uris)
-        return {"message": f"Playlist '{playlist_name}' created with {len(track_uris)} songs."}
+        msg = (
+            f"Playlist '{playlist_name}' created with "
+            f"{len(track_uris)} songs."
+        )
+        return {"message": msg}
     except Exception as e:
         return {"error": f"Error creating playlist from queue: {e}"}
+
 
 def add_track_to_likes(token_info: dict, track_uri: str):
     sp = spotipy.Spotify(auth=token_info["access_token"])
@@ -163,13 +228,16 @@ def add_track_to_likes(token_info: dict, track_uri: str):
     except Exception as e:
         return {"error": f"Error adding track to liked songs: {e}"}
 
+
 def get_user_playlists(token_info: dict):
     sp = spotipy.Spotify(auth=token_info["access_token"])
     try:
-        playlists = sp.current_user_playlists(limit=50) # Limit to 50 for now
+        # Limit to 50 for now
+        playlists = sp.current_user_playlists(limit=50)
         return {"playlists": playlists["items"]}
     except Exception as e:
         return {"error": f"Error fetching user playlists: {e}"}
+
 
 def previous_track(token_info: dict):
     sp = spotipy.Spotify(auth=token_info["access_token"])
@@ -178,3 +246,4 @@ def previous_track(token_info: dict):
         return {"message": "Skipped to previous track."}
     except Exception as e:
         return {"error": f"Error skipping to previous track: {e}"}
+

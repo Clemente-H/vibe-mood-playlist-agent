@@ -63,8 +63,9 @@ def create_or_update_user_table(user_id: str, songs_data: list):
     print(f"(Placeholder) Would create/update table for user {user_id} with {len(songs_data)} songs.")
     pass
 
-def search_liked_songs(user_id: str, mood_params: dict):
+def search_liked_songs(user_id: str, mood_params: dict, limit: int = 10):
     """Searches the user-specific table. Tool for the PersonalizedAgent."""
     # TODO: Implement query logic for the user-specific table.
-    print(f"(Placeholder) Would search liked songs for user {user_id} with mood {mood_params}.")
+    print(f"(Placeholder) Would search liked songs for user {user_id} "
+          f"with mood {mood_params}, limit={limit}.")
     return []

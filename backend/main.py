@@ -9,7 +9,7 @@ from starlette.middleware.sessions import SessionMiddleware
 # Import the new router
 from routers import spotify
 from spotify_service import get_user_context, get_current_queue, get_spotify_oauth, get_access_token
-#from agents.agent_manager import run_agent_with_context
+from agents.agent_manager import run_agent_with_context
 
 load_dotenv()
 

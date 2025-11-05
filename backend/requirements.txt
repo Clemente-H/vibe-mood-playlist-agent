@@ -1,0 +1,11 @@
+spotipy
+fastapi
+uvicorn[standard]
+python-dotenv
+google-adk
+google-cloud-aiplatform
+starlette
+python-multipart
+duckdb
+itsdangerous
+pandas

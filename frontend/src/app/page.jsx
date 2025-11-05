@@ -132,22 +132,22 @@ export default function MoodPlayer() {
           :
           showSpotifyModal?
             <motion.div
-              key="spotify-modal"
+              key="modals"
               initial={{ opacity: 0 }}
-              animate={{ opacity: 1 , transition: { duration: 2, delay: 2, ease: "easeInOut" } }}
+              animate={{ opacity: 1 , transition: { duration: 1, delay: 1.5, ease: "easeInOut" } }}
               exit={{ opacity: 0 , transition: { duration: 1, ease: "easeInOut" } }}
             >
-              <SpotifyModal onClose={() => handleSpotifyLoginSuccess()} />
+              <SpotifyModal onClose={() => handleSpotifyLoginSuccess()} key="spotify-modal"/>
             </motion.div>
             :
-            <>
+            <AnimatePresence>
               {
                 showEmotionGuide?
                   <motion.div
                     key="emotion-guide"
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 , transition: { duration: 1, delay: 1.5, ease: "easeInOut" } }}
-                    exit={{ opacity: 0 , transition: { duration: 1, delay: 1.5, ease: "easeInOut" } }}
+                    exit={{ opacity: 0 , transition: { duration: 1, ease: "easeInOut" } }}
                   >
                     <EmotionGuide />
                   </motion.div>
@@ -155,7 +155,7 @@ export default function MoodPlayer() {
                   <MusicPlayer key="music-player"/>
               }
               <ChatDock messageHandler={handleMessage} key="docked-chat"/>
-            </>
+            </AnimatePresence>
         }
       </AnimatePresence>
     </div>

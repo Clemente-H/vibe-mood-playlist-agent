@@ -4,7 +4,7 @@ export function SpotifyModal({ onClose }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-      <div className="w-full max-w-md rounded-2xl bg-gradient-to-br from-gray-900 to-black p-8 shadow-2xl">
+      <div className="w-full max-w-md rounded-2xl bg-linear-to-br from-gray-900 to-black p-8 shadow-2xl">
         {/* Spotify Icon */}
         <img
             src="/spotify_logo.png"

@@ -53,7 +53,7 @@ export function MusicPlayer() {
     <motion.div
       className="fixed left-1/2 top-1/2 z-10 w-full max-w-sm -translate-x-1/2 -translate-y-1/2 px-4 sm:max-w-md sm:px-6"
       initial={{ opacity: 0, scale: 0.8 }}
-      animate={{ opacity: 1, scale: 1, transition: { duration: 0.5 , delay: 2 } }}
+      animate={{ opacity: 1, scale: 1, transition: { duration: 1 , delay: 1 } }}
     >
       <div className="rounded-lg border border-white/20 bg-white/10 p-4 backdrop-blur-lg sm:p-6">
         <div className="mb-4 flex justify-center sm:mb-6">

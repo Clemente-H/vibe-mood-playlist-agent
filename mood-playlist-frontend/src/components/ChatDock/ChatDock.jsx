@@ -25,8 +25,9 @@ export function ChatDock({ messageHandler }) {
       animate={{
         y: 0,
         transition: {
-          duration: 0.7,
+          duration: 1,
           delay: 1.5,
+          ease: "easeInOut"
         }
       }} 
       key="chat-dock"

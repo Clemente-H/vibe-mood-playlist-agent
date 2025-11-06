@@ -1,63 +1,48 @@
-# agent_manager.py
+import logging
+import warnings
+from google.adk.runners import Runner
+from google.adk.sessions import InMemorySessionService
+from google.genai import types
+
 from agents.orchestrator import create_orchestrator_agent
-import spotipy
+
+# Suppress Google ADK warnings about non-text parts in responses
+logging.getLogger('google.genai').setLevel(logging.ERROR)
+warnings.filterwarnings('ignore', message='.*non-text parts.*')
+
+# Agent Manager - Main API for agent execution
+# Provides run_agent_with_context() function to execute the orchestrator
+# pipeline with user context and return playlist results.
 
 
 def _format_context_for_prompt(spotify_context: dict) -> tuple[str, str]:
     """
-    Formatea el perfil de usuario y la cola en un string para
-    el prompt del LLM.
-    """
+    Formats the user profile and queue into strings for LLM prompts.
     
-    # Tu lógica de formato de perfil (¡está muy bien!)
-    profile_str = ""
-    if spotify_context.get("user_profile"):
-        profile_data = spotify_context["user_profile"]
-        profile_str += "- Top Artists: " + ", ".join([
-            artist['name']
-            for artist in profile_data.get("top_artists", [])[:5]
-        ])
-        profile_str += "\n- Top Genres: " + ", ".join(list(set(
-            genre
-            for artist in profile_data.get("top_artists", [])
-            for genre in artist["genres"][:2]
-        )))
-        profile_str += "\n- Recently Played: " + ", ".join([
-            track['name']
-            for track in profile_data.get("recently_played", [])[:5]
-        ])
-    else:
-        profile_str = "No disponible."
+    Returns:
+        tuple: (profile_str, queue_str)
+        - profile_str: Brief summary for MergerAgent
+        - queue_str: Current playback queue
+    """
+    user_profile = spotify_context["user_profile"]
+    
+    # Format brief profile summary (for MergerAgent)
+    profile_str = "- Top Artists: " + ", ".join([artist['name'] for artist in user_profile.get("top_artists", [])[:5]])
+    profile_str += "\n- Top Genres: " + ", ".join(list(set(genre for artist in user_profile.get("top_artists", []) for genre in artist["genres"][:2])))
+    profile_str += "\n- Recently Played: " + ", ".join([track['name'] for track in user_profile.get("recently_played", [])[:5]])
 
-    # Tu lógica de formato de cola (¡también muy bien!)
-    queue_str = ""
-    queue_check = (
-        spotify_context.get("queue") and
-        not spotify_context["queue"].get("error")
-    )
-    if queue_check:
-        queue_data = spotify_context["queue"]
-        
-        queue_str = "- Currently Playing: "
-        if queue_data.get("currently_playing"):
-            curr_track = queue_data['currently_playing']
-            queue_str += (
-                f"{curr_track['name']} by "
-                f"{curr_track['artists'][0]['name']}\n"
-            )
-        else:
-            queue_str += "Nothing\n"
-        
-        queue_str += "- Up Next: "
-        if queue_data.get("queue"):
-            queue_str += ", ".join([
-                item["name"]
-                for item in queue_data["queue"][:5]
-            ])
-        else:
-            queue_str += "Empty"
+    # Format queue
+    queue_str = "- Currently Playing: "
+    if spotify_context["queue"] and spotify_context["queue"].get("currently_playing"):
+        queue_str += f"{spotify_context['queue']['currently_playing']['name']} by {spotify_context['queue']['currently_playing']['artists'][0]['name']}\n"
     else:
-        queue_str = "No disponible."
+        queue_str += "Nothing\n"
+    
+    queue_str += "- Up Next: "
+    if spotify_context["queue"] and spotify_context["queue"].get("queue"):
+        queue_str += ", ".join([item["name"] for item in spotify_context["queue"]["queue"][:5]])
+    else:
+        queue_str += "Empty"
 
     return profile_str, queue_str
 
@@ -65,60 +50,131 @@ def _format_context_for_prompt(spotify_context: dict) -> tuple[str, str]:
 async def run_agent_with_context(
     user_message: str,
     spotify_context: dict,
-    token_info: dict
-) -> str:
+    user_id: str
+) -> dict:
     """
-    Ejecuta el agente de música con un mensaje de usuario y el
-    contexto de Spotify.
-    """
+    Runs the orchestrator agent with Google ADK using the official
+    Runner pattern.
     
-    user_profile_str, queue_str = _format_context_for_prompt(
-        spotify_context
-    )
-
-    # Obtener el user_id del token de Spotify
-    sp = spotipy.Spotify(auth=token_info["access_token"])
-    user_id = sp.current_user()["id"]
-
-    # 1. Crea el agente orquestador (¡ahora le pasas el token!)
-    orchestrator_agent = create_orchestrator_agent(
-        token_info=token_info,
+    Args:
+        user_message: User's request/message
+        spotify_context: Dict with 'user_profile' and 'queue'
+        user_id: Spotify user ID
+    
+    Returns:
+        dict with playlist and metadata from MergerAgent
+    """
+    # Format context for prompts
+    user_profile_str, queue_str = _format_context_for_prompt(spotify_context)
+    
+    # Get full user context
+    user_context = spotify_context["user_profile"]
+    
+    # Create orchestrator agent
+    orchestrator = create_orchestrator_agent(
+        user_context=user_context,
         user_id=user_id,
         user_profile_str=user_profile_str,
         queue_str=queue_str,
         user_message=user_message
     )
-
-    print("--- CONTEXTO ENVIADO AL ORQUESTADOR ---")
-    print(f"User Profile:\n{user_profile_str}")
-    print(f"Queue:\n{queue_str}")
-    print("---------------------------------------")
-
-    # 2. Ejecuta el agente con generate_content_stream
-    # Esta es la forma correcta de ejecutar un agente en Google ADK
-    response_parts = []
     
-    # Usar el método run() síncronamente y luego convertir a async
-    # O mejor, usar directamente generate_content si está disponible
-    try:
-        # Intentar ejecutar con el modelo directamente
-        async for chunk in orchestrator_agent.model.generate_content_stream_async(
-            user_message
-        ):
-            if hasattr(chunk, 'text'):
-                response_parts.append(chunk.text)
-    except Exception as e:
-        print(f"Error usando generate_content_stream: {e}")
-        # Fallback: intentar con un approach más simple
-        result = orchestrator_agent.model.generate_content(user_message)
-        response_parts.append(result.text)
+    # Setup session service and runner
+    session_service = InMemorySessionService()
     
-    final_response = "".join(response_parts)
+    APP_NAME = "vibe-mood-playlist-agent"
+    USER_ID = f"spotify_{user_id}"
+    SESSION_ID = f"session_{user_id}"
+    
+    # Create session
+    await session_service.create_session(
+        app_name=APP_NAME,
+        user_id=USER_ID,
+        session_id=SESSION_ID
+    )
+    
+    # Create runner
+    runner = Runner(
+        agent=orchestrator,
+        app_name=APP_NAME,
+        session_service=session_service
+    )
+    
+    # Prepare user message
+    content = types.Content(
+        role='user',
+        parts=[types.Part(text=user_message)]
+    )
+    
+    # Execute and collect results
+    playlist_result = None
+    all_events = []
+    
+    async for event in runner.run_async(
+        user_id=USER_ID,
+        session_id=SESSION_ID,
+        new_message=content
+    ):
+        all_events.append(f"{event.author}: {event.content.parts[0] if event.content and event.content.parts else 'No content'}")
+        
+        # Look for MergerAgent's return_playlist_to_queue response
+        if event.content and event.content.parts:
+            for part in event.content.parts:
+                if (hasattr(part, 'function_response') and
+                        part.function_response):
+                    if (part.function_response.name ==
+                            'return_playlist_to_queue'):
+                        playlist_result = dict(
+                            part.function_response.response
+                        )
+        
+        # Break when orchestrator finishes
+        if event.is_final_response() and event.author == "OrchestratorAgent":
+            break
+    
+    # Debug: print all events if no playlist
+    if not playlist_result:
+        print("\n[DEBUG] All events:")
+        for e in all_events:
+            print(f"  {e}")    # Return the playlist result or empty dict if none found
+    return playlist_result if playlist_result else {
+        "status": "error",
+        "message": "No playlist generated"
+    }
 
-    print("--- RESPUESTA FINAL DEL AGENTE ---")
-    print(final_response)
-    print("----------------------------------")
 
-    # 3. Retorna la respuesta final en lenguaje natural
-    return final_response
+# Old implementation (commented for reference)
+# async def run_agent_with_context(user_message: str, spotify_context: dict) -> dict:
+#     """
+#     Runs the music agent with a given user message and spotify context.
+#     """
+    
+#     user_profile_str, queue_str = _format_context_for_prompt(spotify_context)
 
+#     # Format the main prompt with the gathered context
+#     formatted_prompt = MAIN_AGENT_PROMPT.format(
+#         user_profile_str=user_profile_str,
+#         queue_str=queue_str,
+#         user_message=user_message
+#     )
+
+#     print("--- PROMPT SENT TO AGENT ---")
+#     print(formatted_prompt)
+#     print("-----------------------------")
+
+#     # Call the agent, which returns a streaming async generator
+#     response_parts = []
+#     async for part in root_agent.run_async(formatted_prompt):
+#         response_parts.append(part)
+    
+#     agent_response_str = "".join(response_parts)
+
+#     # TODO: Add robust JSON parsing and validation
+#     import json
+#     try:
+#         agent_plan = json.loads(agent_response_str)
+#     except json.JSONDecodeError:
+#         print("Error: Agent did not return valid JSON.")
+#         agent_plan = {"error": "Invalid JSON response from agent", "raw_response": agent_response_str}
+
+#     return agent_plan

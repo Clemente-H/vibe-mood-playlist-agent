@@ -52,9 +52,17 @@ def logout(request: Request):
 
 @app.post("/chat")
 async def chat(request: Request, chat_request: ChatRequest):
+    import spotipy
+    from spotify_service import add_to_queue
+    
     token_info = request.session.get("token_info")
     if not token_info:
         return {"error": "User not authenticated"}
+
+    # Get user ID from Spotify
+    sp = spotipy.Spotify(auth=token_info["access_token"])
+    user_info = sp.current_user()
+    user_id = user_info["id"]
 
     # --- Caching Logic for User Profile ---
     user_profile = request.session.get("user_profile")
@@ -70,19 +78,39 @@ async def chat(request: Request, chat_request: ChatRequest):
     current_queue = get_current_queue(token_info)
 
     # Combine cached profile with real-time queue for full context
-    full_context = {
+    spotify_context = {
         "user_profile": user_profile,
         "queue": current_queue
     }
 
     # Run the agent with the full context
-    agent_plan = await run_agent_with_context(chat_request.message, full_context)
+    agent_result = await run_agent_with_context(
+        user_message=chat_request.message,
+        spotify_context=spotify_context,
+        user_id=user_id
+    )
 
-    # For now, just print and return the plan
-    print("--- AGENT PLAN RECEIVED ---")
-    print(agent_plan)
-    print("---------------------------")
-
-    # TODO: Implement the plan execution logic here
-
-    return {"status": "Plan received", "plan": agent_plan}
+    # Check if playlist was generated successfully
+    if agent_result.get("status") == "success":
+        playlist = agent_result.get("playlist", [])
+        
+        # Add all tracks to Spotify queue
+        tracks_added = 0
+        for track_uri in playlist:
+            try:
+                add_to_queue(token_info, track_uri)
+                tracks_added += 1
+            except Exception as e:
+                print(f"Error adding {track_uri} to queue: {e}")
+        
+        return {
+            "status": "success",
+            "message": f"Added {tracks_added} songs to your queue!",
+            "total_tracks": len(playlist),
+            "playlist_preview": playlist[:5]  # Show first 5 URIs
+        }
+    else:
+        return {
+            "status": "error",
+            "message": agent_result.get("message", "Failed to generate playlist")
+        }

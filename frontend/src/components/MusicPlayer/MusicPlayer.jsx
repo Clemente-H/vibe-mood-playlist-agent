@@ -1,10 +1,12 @@
 "use client"
 
 import { useState, useEffect , useRef } from "react"
-import { Play, Pause, SkipForward, SkipBack } from "lucide-react"
+import { Play, Pause, SkipForward, SkipBack, Volume2, Volume1, VolumeX } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { Slider } from "@/components/ui/slider"
 import { motion } from "framer-motion"
+import api from "@/lib/api";
 
 // Track template
 const TRACK_TEMPLATE = {
@@ -14,17 +16,22 @@ const TRACK_TEMPLATE = {
 };
 
 export function MusicPlayer(props) {
+
   const playerRef = useRef(null);
   const initializedRef = useRef(false); // prevent double useEffect execution in dev
   const scriptRef = useRef(null);
   const tickRef = useRef(null);
   const baseProgressRef = useRef(0);   // seconds in the last real sync
   const lastSyncTsRef = useRef(0);     // timestamp ms of the last real sync
+  const isQueueLoadedRef = useRef(false); // prevent double
+  const lastTrackUriRef = useRef(null);
 
 
   const [isActive, setIsActive] = useState(false);
   const [isPaused, setIsPaused] = useState(true);
   const [currentTrack, setCurrentTrack] = useState(TRACK_TEMPLATE);
+  const [playerVolume, setPlayerVolume] = useState(0);
+  const [queue, setQueue] = useState([]);
 
   const [currentTime, setCurrentTime] = useState(0);      // seconds
   const [totalDuration, setTotalDuration] = useState(0);  // seconds
@@ -37,6 +44,41 @@ export function MusicPlayer(props) {
 
   const progressPercentage =
     totalDuration > 0 ? (currentTime / totalDuration) * 100 : 0;
+
+  const playFromIndex = async (index) => {
+    try{
+      await api.post('/spotify/play_from_queue', { index });
+      loadQueue();
+    } catch (err) {
+      console.error("Error playing from queue:", err);
+    }
+  }
+
+  const loadQueue = async () => {
+    try {
+      const { data } = await api.get("/spotify/queue");
+      console.log(data.queue);
+      setQueue(data.queue || []);
+      isQueueLoadedRef.current = true;
+    } catch (e) {
+      console.warn("Error loading queue", e);
+    }
+  };
+
+  const shouldRefreshQueue = (state) => {
+    if (!state) return false;
+
+    const currentUri = state.track_window?.current_track?.uri;
+    if (!currentUri) return false;
+
+    // si la canción no cambió → no refrescar
+    if (currentUri === lastTrackUriRef.current) return false;
+
+    // actualizar referencia de última canción
+    lastTrackUriRef.current = currentUri;
+
+    return true;
+  };
 
   useEffect(() => {
 
@@ -57,10 +99,12 @@ export function MusicPlayer(props) {
       const player = new window.Spotify.Player({
         name: "VibeFM",
         getOAuthToken: async (cb) => await cb(props.token),
-        volume: 0.5,
+        volume: 0.2,
       });
 
       playerRef.current = player;
+
+      setPlayerVolume(player.getVolume());
 
       // Listeners
       const onReady = async ({ device_id }) => {
@@ -94,6 +138,15 @@ export function MusicPlayer(props) {
         const currentState = await player.getCurrentState();
         setIsActive(!!currentState);
 
+        if (isQueueLoadedRef.current){
+          if (shouldRefreshQueue(state)) {
+            loadQueue();
+          }
+        }
+        else{
+          loadQueue();
+        }
+        
         // Restart the tick when paused
         if (tickRef.current) {
           clearInterval(tickRef.current);
@@ -162,13 +215,6 @@ export function MusicPlayer(props) {
     };
 
   }, []);
-
-  const queue = [
-    { id: 1, title: "Blue and Yellow", artist: "The Used", duration: "4:12" },
-    { id: 2, title: "Torero", artist: "Chayanne", duration: "3:28" },
-    { id: 3, title: "Beautiful lie", artist: "30 Seconds to Mars", duration: "5:01" },
-    { id: 4, title: "Digital Waves", artist: "Synth Valley", duration: "3:55" },
-  ]
 
   if(!isActive){
     return (
@@ -252,25 +298,33 @@ export function MusicPlayer(props) {
         </div>
 
         {/* Queue */}
-        <div className="border-t border-white/20 pt-3 sm:pt-4">
-          <h4 className="mb-2 text-xs font-bold uppercase tracking-wide text-white/70 sm:mb-3 sm:text-sm">Up Next</h4>
-          <ScrollArea className="h-40 sm:h-48">
-            <div className="space-y-2">
-              {queue.map((song) => (
-                <div
-                  key={song.id}
-                  className="flex items-center justify-between rounded-md p-2 transition-colors hover:bg-white/10 sm:p-3"
-                >
-                  <div className="flex-1">
-                    <p className="text-xs font-bold text-white sm:text-sm">{song.title}</p>
-                    <p className="text-xs font-semibold text-white/60">{song.artist}</p>
+        {queue.length > 0?
+          <div className="border-t border-white/20 pt-3 sm:pt-4">
+            <h4 className="mb-2 text-xs font-bold uppercase tracking-wide text-white/70 sm:mb-3 sm:text-sm">Up Next</h4>
+            <ScrollArea className="h-40 sm:h-48">
+              <div className="space-y-2">
+                {queue.map((song, i) => (
+                  <div
+                    key={`${song.id}-${i}`}
+                    className="flex items-center justify-between rounded-md p-2 transition-colors hover:bg-white/10 sm:p-3 cursor-pointer"
+                    onClick={() => playFromIndex(i)}
+                  >
+                    <div className="flex-1">
+                      <p className="text-xs font-bold text-white sm:text-sm">{song.name}</p>
+                      <p className="text-xs font-semibold text-white/60">{song.artists.map(a => a.name).join(", ")}</p>
+                    </div>
+                    <span className="text-xs font-semibold text-white/60">{formatTime(song.duration_ms/1000)}</span>
                   </div>
-                  <span className="text-xs font-semibold text-white/60">{song.duration}</span>
-                </div>
-              ))}
-            </div>
-          </ScrollArea>
-        </div>
+                ))}
+              </div>
+            </ScrollArea>
+          </div>
+        :
+          <div className="border-t border-white/20 pt-3 sm:pt-4">
+            <h4 className="mb-2 text-xs font-bold uppercase tracking-wide text-white/70 sm:mb-3 sm:text-sm">No active queue </h4>
+          </div>
+        }
+        
       </div>
     </motion.div>
   )

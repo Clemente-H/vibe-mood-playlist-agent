@@ -8,14 +8,18 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { SpotifyModal } from "@/components/SpotifyLogger/SpotifyLogger";
 import { EmotionGuide } from "@/components/EmotionsGuide/EmotionsGuide";
+import api from "@/lib/api";
 
-export default function MoodPlayer() {
+export default function VibeFM() {
+
+  const BACKEND = process.env.NEXT_PUBLIC_API_BASE;
 
   const [theme, setTheme] = useState("light");
+  const [token, setToken] = useState('');
   const [text, setText] = useState("");
   const [gradientColors, setGradientColors] = useState(["#51a2ff", "#ad46ff", "#f6339a", "#51a2ff", "#ad46ff"]);
   const [showWelcomeMessage, setShowWelcomeMessage] = useState(true);
-  const [showEmotionGuide, setShowEmotionGuide] = useState(false);
+  const [showEmotionGuide, setShowEmotionGuide] = useState(true);
   const [showSpotifyModal, setShowSpotifyModal] = useState(true);
 
   const newGradientColor = () => {
@@ -28,12 +32,7 @@ export default function MoodPlayer() {
       }
       return updatedColors;
     });
-  }
-
-  const handleSpotifyLoginSuccess = () => {
-    setShowSpotifyModal(false);
-    setShowEmotionGuide(true);
-  }
+  };
 
   const handleMessage = (message) => {
     setText(message);
@@ -41,19 +40,35 @@ export default function MoodPlayer() {
     if (showEmotionGuide) {
       setShowEmotionGuide(false);
     }
-  }
+  };
+
+  const handleSpotifyLogin = () => {
+    window.location.href = `${BACKEND}/login`;
+  };
 
   const toggleTheme = () => {
     setTheme(theme === "light" ? "dark" : "light");
-  }
+  };
+
+  const saveVisited = () => {
+    setShowWelcomeMessage(false);
+    localStorage.setItem("hasVisited", "true");
+  };
 
   useEffect(() => {
+    
     const hasVisited = localStorage.getItem("hasVisited")
-    if (!hasVisited) {
-      setShowSpotifyModal(true)
-      localStorage.setItem("hasVisited", "true")
+    if (hasVisited) {
+      setShowWelcomeMessage(false);
     }
-  }, [])
+
+    api.get("/token")
+      .then((res) => {
+        setShowSpotifyModal(false);
+        setToken(res.data.access_token);
+      })
+      .catch(() => setShowSpotifyModal(true));
+  }, []);
 
   return (
     <div className="overflow-hidden h-dvh w-dvw">
@@ -122,8 +137,8 @@ export default function MoodPlayer() {
             <Button
               size="lg"
               variant="default"
-              className="mt-8 bg-white/20 text-white hover:bg-white/30"
-              onClick={() => setShowWelcomeMessage(false)}
+              className="mt-8 bg-white/20 text-white hover:bg-white/30 cursor-pointer"
+              onClick={saveVisited}
             >
               Start Chatting
             </Button>
@@ -137,7 +152,7 @@ export default function MoodPlayer() {
               animate={{ opacity: 1 , transition: { duration: 1, delay: 1.5, ease: "easeInOut" } }}
               exit={{ opacity: 0 , transition: { duration: 1, ease: "easeInOut" } }}
             >
-              <SpotifyModal onClose={() => handleSpotifyLoginSuccess()} key="spotify-modal"/>
+              <SpotifyModal onLogin={handleSpotifyLogin} key="spotify-modal"/>
             </motion.div>
             :
             <AnimatePresence>
@@ -146,13 +161,13 @@ export default function MoodPlayer() {
                   <motion.div
                     key="emotion-guide"
                     initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 , transition: { duration: 1, delay: 1.5, ease: "easeInOut" } }}
+                    animate={{ opacity: 1, transition: { duration: 1, delay: 1.5, ease: "easeInOut" } }}
                     exit={{ opacity: 0 , transition: { duration: 1, ease: "easeInOut" } }}
                   >
                     <EmotionGuide />
                   </motion.div>
                 :
-                  <MusicPlayer key="music-player"/>
+                  <MusicPlayer token={token} key="music-player"/>
               }
               <ChatDock messageHandler={handleMessage} key="docked-chat"/>
             </AnimatePresence>

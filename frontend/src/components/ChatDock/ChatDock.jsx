@@ -36,7 +36,7 @@ export function ChatDock({ messageHandler }) {
         <form onSubmit={handleSubmit} className="flex gap-2">
           <Input
             type="text"
-            placeholder="Type your message..."
+            placeholder="Tell me your mood..."
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             className="flex-1 border-white/30 bg-white/20 text-white font-bold placeholder:text-white/60 focus-visible:ring-white/50"

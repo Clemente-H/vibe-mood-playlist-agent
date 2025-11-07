@@ -53,7 +53,7 @@ def logout(request: Request):
 @app.post("/chat")
 async def chat(request: Request, chat_request: ChatRequest):
     import spotipy
-    from spotify_service import add_to_queue
+    from spotify_service import validate_and_add_tracks_to_queue
     
     token_info = request.session.get("token_info")
     if not token_info:
@@ -94,21 +94,27 @@ async def chat(request: Request, chat_request: ChatRequest):
     if agent_result.get("status") == "success":
         playlist = agent_result.get("playlist", [])
         
-        # Add all tracks to Spotify queue
-        tracks_added = 0
-        for track_uri in playlist:
-            try:
-                add_to_queue(token_info, track_uri)
-                tracks_added += 1
-            except Exception as e:
-                print(f"Error adding {track_uri} to queue: {e}")
+        # Validate and add tracks to queue (done in spotify_service)
+        validation_result = validate_and_add_tracks_to_queue(
+            token_info,
+            playlist
+        )
         
-        return {
+        # Prepare response
+        response = {
             "status": "success",
-            "message": f"Added {tracks_added} songs to your queue!",
-            "total_tracks": len(playlist),
-            "playlist_preview": playlist[:5]  # Show first 5 URIs
+            "message": f"Added {validation_result['tracks_added']} songs to your queue!",
+            "total_tracks": validation_result["total_tracks"],
+            "valid_tracks": len(validation_result["valid_tracks"]),
+            "invalid_tracks": len(validation_result["invalid_tracks"]),
+            "playlist_preview": validation_result["valid_tracks"][:5]
         }
+        
+        if validation_result["invalid_tracks"]:
+            response["warning"] = f"{len(validation_result['invalid_tracks'])} tracks were invalid and skipped"
+            response["invalid_uris"] = validation_result["invalid_tracks"][:5]
+        
+        return response
     else:
         return {
             "status": "error",

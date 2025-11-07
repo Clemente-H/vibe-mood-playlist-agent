@@ -30,9 +30,10 @@ else:
 from dotenv import load_dotenv
 
 # Import our agent factory
-from agents.agent_manager import (
-    run_agent_with_context,
-    _format_context_for_prompt
+from agents.agent_manager import run_agent_with_context
+from agents.context_formatter import (
+    format_for_merger_agent,
+    format_queue_info
 )
 
 # Import Spotify service for authentication
@@ -90,17 +91,56 @@ async def test_real_agents_with_runner():
         "queue": queue
     }
     
-    # Use agent_manager's formatter
-    user_profile_str, queue_str = _format_context_for_prompt(spotify_context)
+    # ANALYZE CONTEXT
+    print("\n   📊 USER CONTEXT STATS:")
+    print(f"      • Top Artists: {len(user_context.get('top_artists', []))}")
+    print(f"      • Top Tracks: {len(user_context.get('top_tracks', []))}")
+    print(f"      • Recently Played: {len(user_context.get('recently_played', []))}")
+    print(f"      • Playlists: {len(user_context.get('playlists', []))}")
     
-    user_message = "Quiero hacer una fiesta para toda la noche estilo rock, electrónica y con temática ROJO"
+    # Count tracks in playlists
+    total_playlist_tracks = 0
+    for playlist in user_context.get('playlists', []):
+        tracks = playlist.get('tracks', [])
+        total_playlist_tracks += len(tracks)
     
-    print(f"[OK] User profile: {user_profile_str[:80]}...")
+    print(f"      • Total tracks in playlists: {total_playlist_tracks}")
+    total_available = total_playlist_tracks + len(user_context.get('top_tracks', [])) + len(user_context.get('recently_played', []))
+    print(f"      • TOTAL TRACKS AVAILABLE FOR PERSONALIZEDAGENT: {total_available}")
+    
+    # Use centralized context formatters
+    user_profile_str = format_for_merger_agent(user_context)
+    queue_str = format_queue_info(queue)
+    print(user_profile_str)
+    
+    # Context size analysis
+    total_chars = len(user_profile_str) + len(queue_str)
+    estimated_tokens = total_chars / 4
+    print(f"\n   📝 FORMATTED CONTEXT:")
+    print(f"      • Characters: {total_chars}")
+    print(f"      • Estimated tokens: ~{int(estimated_tokens)}")
+    
+    print(f"\n   🤖 AGENT DISTRIBUTION:")
+    print(f"      • ScoutAgent: Searches 8M+ songs (no user context)")
+    print(f"      • PersonalizedAgent: Searches {total_available} user tracks")
+    print(f"      • MergerAgent: Combines 40% personalized + 60% scout")
+    
+    # Show sample
+    print(f"\n   📋 CONTEXT PREVIEW (first 500 chars):")
+    print("   " + "-" * 76)
+    for line in user_profile_str[:500].split('\n'):
+        print(f"   {line}")
+    print("   ...")
+    print("   " + "-" * 76)
+    
+    user_message = "Quiero full reggaeton para una fiesta"
+    
+    print(f"\n[OK] Context ready for agents")
     print(f"[OK] Queue: {queue_str[:80]}...")
-    
+
     # Step 3: Run agent with context
     print("\n3. Running agent with context...")
-    user_message = "Quiero hacer una fiesta para toda la noche estilo rock, electrónica y con temática ROJO"
+    user_message = "Quiero rock alternativo para estudiar tranquilo"
     print(f'Query: "{user_message}"')
     
     print("\n" + "=" * 80)

@@ -74,11 +74,11 @@ def create_orchestrator_agent(
         output_key="personalized_results"
     )
     
-    # 2. Create ParallelAgent to execute both searches simultaneously
+    # 2. Create ParallelAgent with both agents
     parallel_agent = ParallelAgent(
         name="ParallelSearchAgent",
         sub_agents=[scout_agent, personalized_agent],
-        description="Executes new music and favorites searches in parallel"
+        description="Executes music search from database and user library in parallel"
     )
     
     # 3. Create MergerAgent to combine results and return playlist

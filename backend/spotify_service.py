@@ -11,16 +11,12 @@ from spotipy.oauth2 import SpotifyOAuth
 
 def get_spotify_oauth():
     """Creates and returns a SpotifyOAuth object."""
-    scope = (
-        "user-read-playback-state user-modify-playback-state "
-        "user-read-currently-playing user-top-read "
-        "user-read-recently-played playlist-read-private"
-    )
     return SpotifyOAuth(
         client_id=os.getenv("SPOTIPY_CLIENT_ID"),
         client_secret=os.getenv("SPOTIPY_CLIENT_SECRET"),
         redirect_uri=os.getenv("SPOTIPY_REDIRECT_URI"),
-        scope=scope,
+        scope="streaming user-read-email user-read-private user-read-playback-state user-modify-playback-state user-read-currently-playing",
+        cache_handler=None
     )
 
 
@@ -175,15 +171,41 @@ def add_to_queue(token_info: dict, song_uri: str):
         return {"message": f"Added {song_uri} to queue."}
     except Exception as e:
         return {"error": f"Error adding to queue: {e}"}
+    
 
-
-def start_playback(token_info: dict):
+def start_playback(token_info: dict, uri: str, device_id: str | None = None):
     sp = spotipy.Spotify(auth=token_info["access_token"])
     try:
         sp.start_playback()
         return {"message": "Playback started."}
     except Exception as e:
         return {"error": f"Error starting playback: {e}"}
+    
+    
+def start_playback_with_uris(token_info: dict, uris: list[str], device_id: str | None = None):
+    """
+    Reemplaza la playback queue con 'uris' y comienza a reproducir desde la primera.
+    """
+    sp = spotipy.Spotify(auth=token_info["access_token"])
+    try:
+        sp.start_playback(device_id=device_id, uris=uris)
+        return {"message": "Playback started.", "uris": uris}
+    except Exception as e:
+        return {"error": f"Error starting playback with uris: {e}"}
+
+
+def start_playback_from_context(token_info: dict, context_uri: str, offset_uri: str | None = None, device_id: str | None = None):
+    """
+    Inicia reproducción en un contexto (playlist/álbum) y opcionalmente arrancando en 'offset_uri'.
+    """
+    sp = spotipy.Spotify(auth=token_info["access_token"])
+    try:
+        offset = {"uri": offset_uri} if offset_uri else None
+        sp.start_playback(device_id=device_id, context_uri=context_uri, offset=offset)
+        return {"message": "Playback started from context.", "context_uri": context_uri, "offset_uri": offset_uri}
+    except Exception as e:
+        return {"error": f"Error starting playback from context: {e}"}
+    
 
 
 def pause_playback(token_info: dict):

@@ -1,10 +1,12 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
+import json
 
 from dotenv import load_dotenv
 import os
 from starlette.middleware.sessions import SessionMiddleware
+from starlette.middleware.cors import CORSMiddleware
 
 # Import the new router
 from routers import spotify
@@ -15,11 +17,24 @@ load_dotenv()
 
 app = FastAPI()
 
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://127.0.0.1:3000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 # Add session middleware
 app.add_middleware(
     SessionMiddleware,
     secret_key=os.getenv("SECRET_KEY"),
+    same_site="lax",
+    https_only=False
 )
+
+
 
 # Include the spotify router
 app.include_router(spotify.router)
@@ -43,7 +58,15 @@ def callback(request: Request):
     token_info = get_access_token(code)
     request.session["token_info"] = token_info
     # Redirect to the frontend, which will now have the session cookie
-    return RedirectResponse("http://localhost:3000/")
+    return RedirectResponse("http://127.0.0.1:3000/")
+
+@app.get("/token")
+def me(request: Request):
+    token_info = request.session.get("token_info")
+    if not token_info:
+        raise HTTPException(status_code=401, detail="Not logged in")
+    
+    return {'access_token': token_info.get("access_token")}
 
 @app.get("/logout")
 def logout(request: Request):

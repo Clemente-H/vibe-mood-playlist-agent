@@ -9,7 +9,7 @@ export function ThemeToggler({ theme, onToggle }) {
       onClick={onToggle}
       size="icon"
       variant="ghost"
-      className="bg-white/20 text-white hover:bg-white/30 backdrop-blur-sm"
+      className="bg-white/20 text-white hover:bg-white/30 backdrop-blur-sm cursor-pointer"
     >
       {theme === "light" ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
       <span className="sr-only">Toggle theme</span>

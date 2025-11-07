@@ -1,18 +1,26 @@
 "use client"
 
-import { useState } from "react"
+import { useState , useEffect } from "react"
 import { MusicPlayer } from "@/components/MusicPlayer/MusicPlayer";
 import { ChatDock } from "@/components/ChatDock/ChatDock";
 import { ThemeToggler } from "@/components/ThemeToggler/ThemeToggler";
-import { AnimatePresence, motion , useMotionTemplate } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
+import { SpotifyModal } from "@/components/SpotifyLogger/SpotifyLogger";
+import { EmotionGuide } from "@/components/EmotionsGuide/EmotionsGuide";
+import api from "@/lib/api";
 
-export default function MoodPlayer() {
+export default function VibeFM() {
+
+  const BACKEND = process.env.NEXT_PUBLIC_API_BASE;
 
   const [theme, setTheme] = useState("light");
+  const [token, setToken] = useState('');
   const [text, setText] = useState("");
   const [gradientColors, setGradientColors] = useState(["#51a2ff", "#ad46ff", "#f6339a", "#51a2ff", "#ad46ff"]);
-  const [welcome, setWelcome] = useState(false);
+  const [showWelcomeMessage, setShowWelcomeMessage] = useState(true);
+  const [showEmotionGuide, setShowEmotionGuide] = useState(true);
+  const [showSpotifyModal, setShowSpotifyModal] = useState(true);
 
   const newGradientColor = () => {
     
@@ -24,17 +32,43 @@ export default function MoodPlayer() {
       }
       return updatedColors;
     });
-  }
+  };
 
   const handleMessage = (message) => {
     setText(message);
     newGradientColor();
-    console.log("Received message in page:", message);
-  }
+    if (showEmotionGuide) {
+      setShowEmotionGuide(false);
+    }
+  };
+
+  const handleSpotifyLogin = () => {
+    window.location.href = `${BACKEND}/login`;
+  };
 
   const toggleTheme = () => {
     setTheme(theme === "light" ? "dark" : "light");
-  }
+  };
+
+  const saveVisited = () => {
+    setShowWelcomeMessage(false);
+    localStorage.setItem("hasVisited", "true");
+  };
+
+  useEffect(() => {
+    
+    const hasVisited = localStorage.getItem("hasVisited")
+    if (hasVisited) {
+      setShowWelcomeMessage(false);
+    }
+
+    api.get("/token")
+      .then((res) => {
+        setShowSpotifyModal(false);
+        setToken(res.data.access_token);
+      })
+      .catch(() => setShowSpotifyModal(true));
+  }, []);
 
   return (
     <div className="overflow-hidden h-dvh w-dvw">
@@ -51,32 +85,21 @@ export default function MoodPlayer() {
               "--gc5": gradientColors[4],
           }}
           animate={{
-            filter: theme === "light" ? "brightness(100%)" : "brightness(65%)",
+            filter: theme === "light" ? "brightness(100%)" : "brightness(60%)",
             "--gc1": gradientColors[0],
             "--gc2": gradientColors[1],
             "--gc3": gradientColors[2],
             "--gc4": gradientColors[3],
             "--gc5": gradientColors[4],
           }}
-          transition={{ duration: 1, ease: "easeInOut" }}
+          transition={{ duration: 2, ease: "easeInOut" }}
         />
-        <div className="fixed right-4 top-4 z-20" key="theme-toggler">
+        <div className="fixed right-4 top-4 z-99" key="theme-toggler">
           <ThemeToggler theme={theme} onToggle={toggleTheme} />
         </div>
 
-        {welcome?
-          <>
-            <MusicPlayer
-              key="music-player"
-            />
-            
-            <ChatDock
-              messageHandler={handleMessage}
-              key="docked-chat"
-            />
-          </>
-          : 
-            <motion.div
+        {showWelcomeMessage?
+          <motion.div
             className="relative z-10 flex min-h-screen flex-col items-center justify-center px-4"
             key="welcome-text"
             initial={{
@@ -87,7 +110,7 @@ export default function MoodPlayer() {
               opacity: 1,
               scale: 1,
               transition: {
-                duration: 5,
+                duration: 3,
                 ease: "easeInOut"
               }
             }}
@@ -114,13 +137,40 @@ export default function MoodPlayer() {
             <Button
               size="lg"
               variant="default"
-              className="mt-8 bg-white/20 text-white hover:bg-white/30"
-              onClick={() => setWelcome(true)}
+              className="mt-8 bg-white/20 text-white hover:bg-white/30 cursor-pointer"
+              onClick={saveVisited}
             >
               Start Chatting
             </Button>
 
           </motion.div>
+          :
+          showSpotifyModal?
+            <motion.div
+              key="modals"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 , transition: { duration: 1, delay: 1.5, ease: "easeInOut" } }}
+              exit={{ opacity: 0 , transition: { duration: 1, ease: "easeInOut" } }}
+            >
+              <SpotifyModal onLogin={handleSpotifyLogin} key="spotify-modal"/>
+            </motion.div>
+            :
+            <AnimatePresence>
+              {
+                showEmotionGuide?
+                  <motion.div
+                    key="emotion-guide"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1, transition: { duration: 1, delay: 1.5, ease: "easeInOut" } }}
+                    exit={{ opacity: 0 , transition: { duration: 1, ease: "easeInOut" } }}
+                  >
+                    <EmotionGuide />
+                  </motion.div>
+                :
+                  <MusicPlayer token={token} key="music-player"/>
+              }
+              <ChatDock messageHandler={handleMessage} key="docked-chat"/>
+            </AnimatePresence>
         }
       </AnimatePresence>
     </div>

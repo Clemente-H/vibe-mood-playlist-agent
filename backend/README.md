@@ -52,18 +52,20 @@ Our system uses a powerful, multi-agent approach for recommendations:
 
 ### 🚀 Next Steps: Agent & Database Implementation
 
-1.  **Database Setup (`database_service.py`)**:
-    - [ ] Add `duckdb` to `requirements.txt`.
-    - [ ] Create `data_spotify/database_service.py`.
-    - [ ] Implement a function to connect to the DuckDB file.
-    - [ ] Implement `create_or_update_user_table` to sync a user's liked songs into a dedicated table.
-    - [ ] Implement `search_liked_songs` and `search_all_songs` to query the respective tables based on audio features.
+1.  **Database Setup**:
+    *   The main song database (`spotify.sqlite`) is used by the `ScoutAgent` to find new music.
+    *   **To get the `spotify.sqlite` database:**
+        1.  Ensure you have Kaggle API credentials set up (e.g., `KAGGLE_USERNAME` and `KAGGLE_KEY` environment variables, or `~/.kaggle/kaggle.json`).
+        2.  Run the download script: `python utils/kaggle_dataset_download.py` from the `backend/` directory.
+        3.  This will download the `spotify.sqlite` file and place it in `backend/data_spotify/`.
+    *   **Note for Docker Users**: Before building the Docker image for the backend, ensure that the `backend/data_spotify/spotify.sqlite` file exists. The Dockerfile will copy this file into the image.
+    *   The `data_spotify/user_dbs/` directory and related functions (`create_or_update_user_table`, `search_liked_songs`) are currently placeholders for future personalized features and are not actively used.
 
 2.  **Agent Integration (`agent_manager.py`)**:
-    - [ ] Implement the logic to format the `user_profile` and `queue` context into the prompt string.
-    - [ ] Update `prompts.py` to include the new database search tools.
+    -   Implement the logic to format the `user_profile` and `queue` context into the prompt string.
+    -   Update `prompts.py` to include the new database search tools.
 
 3.  **Plan Execution (`main.py`)**:
-    - [ ] In the `/chat` endpoint, implement the logic to parse the agent's JSON plan.
-    - [ ] Execute the plan by calling functions from `spotify_service.py` and `database_service.py`.
+    -   In the `/chat` endpoint, implement the logic to parse the agent's JSON plan.
+    -   Execute the plan by calling functions from `spotify_service.py` and `database_service.py`.
 

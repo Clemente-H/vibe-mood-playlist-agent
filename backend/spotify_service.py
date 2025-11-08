@@ -302,65 +302,6 @@ def get_current_queue(token_info: dict):
         return {"error": f"Error fetching queue: {e}"}
 
 
-def get_unified_queue(token_info: dict):
-    """
-    Gets a comprehensive queue, combining manually added tracks and context tracks.
-    """
-    sp = spotipy.Spotify(auth=token_info["access_token"])
-    try:
-        # 1. Get manually added tracks
-        queue_info = sp.queue()
-        currently_playing = queue_info.get("currently_playing")
-        next_in_queue = queue_info.get("queue", [])
-
-        # 2. Get tracks from the current context (playlist/album)
-        next_up_from_context = []
-        playback_state = sp.current_playback()
-
-        if playback_state and playback_state.get('context'):
-            context_uri = playback_state['context']['uri']
-            current_track_uri = playback_state['item']['uri']
-            
-            items = []
-            if 'playlist' in context_uri:
-                # Fetch all tracks from the playlist
-                results = sp.playlist_items(context_uri)
-                items = results['items']
-                while results['next']:
-                    results = sp.next(results)
-                    items.extend(results['items'])
-
-            elif 'album' in context_uri:
-                results = sp.album_tracks(context_uri)
-                items = results['items']
-                # For albums, the track objects are simpler, need to adapt
-                # For now, we'll just use what we have. A more robust solution
-                # might be needed if album track objects differ too much.
-
-            # Find the current track in the context items
-            found_current = False
-            for item in items:
-                # For playlists, track data is nested under 'track'
-                track_data = item.get('track') if 'track' in item else item
-                if not track_data:
-                    continue
-
-                if found_current:
-                    next_up_from_context.append(track_data)
-                
-                if track_data['uri'] == current_track_uri:
-                    found_current = True
-        
-        return {
-            "currently_playing": currently_playing,
-            "next_in_queue": next_in_queue,
-            "next_up_from_context": next_up_from_context
-        }
-
-    except Exception as e:
-        return {"error": f"Error fetching unified queue: {e}"}
-
-
 def stop_playback(token_info: dict):
     sp = spotipy.Spotify(auth=token_info["access_token"])
     try:

@@ -1,5 +1,6 @@
 import spotipy
 import os
+import time
 from spotipy.oauth2 import SpotifyOAuth
 
 # This service file contains the core logic for interacting with the
@@ -23,7 +24,37 @@ def get_spotify_oauth():
 def get_access_token(code: str) -> dict:
     """Gets the access token from the authorization code."""
     oauth = get_spotify_oauth()
-    return oauth.get_access_token(code)
+    token_info = oauth.get_access_token(code)
+    # Manually add expires_at if it's not there, Spotipy usually adds it.
+    if 'expires_at' not in token_info:
+        token_info['expires_at'] = int(time.time()) + token_info['expires_in']
+    return token_info
+
+
+def refresh_token_if_needed(token_info: dict) -> dict:
+    """
+    Checks if the token is about to expire and refreshes it if necessary.
+    Returns the (potentially updated) token_info.
+    """
+    if not token_info:
+        return None
+
+    # Refresh if the token has less than 60 seconds left
+    if token_info.get('expires_at', 0) < time.time() + 60:
+        try:
+            oauth = get_spotify_oauth()
+            new_token_info = oauth.refresh_access_token(token_info['refresh_token'])
+            # Manually add expires_at if it's not there
+            if 'expires_at' not in new_token_info:
+                new_token_info['expires_at'] = int(time.time()) + new_token_info['expires_in']
+            print("--- Spotify token refreshed successfully ---")
+            return new_token_info
+        except Exception as e:
+            print(f"--- Error refreshing Spotify token: {e} ---")
+            # Could not refresh, return original token to let it fail downstream
+            return token_info
+            
+    return token_info
 
 
 # --- Data Fetching and Preprocessing ---

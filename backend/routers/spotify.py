@@ -107,31 +107,33 @@ def get_user_context(token_info: dict = Depends(get_valid_token)):
 
 @router.get("/queue")
 async def get_queue(token_info: dict = Depends(get_valid_token)):
-    return spotify_service.get_current_queue(token_info)
+    return spotify_service.get_unified_queue(token_info)
 
 @router.post("/play_from_queue")
 async def play_from_queue(body: PlayFromQueueBody, token_info: dict = Depends(get_valid_token)):
     """
-    Reconstruye la reproducción a partir del item 'index' de la cola actual.
-    No hay API para “saltar” directo a un item de la cola; esto la reemplaza con las URIs desde ese punto.
+    Reconstruye la reproducción a partir del item 'index' de la cola unificada.
     """
-    queue_data = spotify_service.get_current_queue(token_info)
+    # Use the unified queue to get a complete list of upcoming tracks
+    queue_data = spotify_service.get_unified_queue(token_info)
     if isinstance(queue_data, dict) and queue_data.get("error"):
         raise HTTPException(status_code=400, detail=queue_data["error"])
 
-    if "queue" not in queue_data:
-        raise HTTPException(status_code=400, detail="No queue available")
+    # Combine both parts of the queue for a complete view
+    next_in_queue = queue_data.get("next_in_queue", [])
+    next_up_from_context = queue_data.get("next_up_from_context", [])
+    unified_queue_items = next_in_queue + next_up_from_context
 
-    queue_items = queue_data["queue"] or []
-    if body.index < 0 or body.index >= len(queue_items):
-        raise HTTPException(status_code=400, detail="Index out of range")
+    if body.index < 0 or body.index >= len(unified_queue_items):
+        raise HTTPException(status_code=400, detail="Index out of range for the unified queue")
 
-    uris = [item.get("uri") for item in queue_items[body.index:] if item.get("uri")]
+    # Get all URIs from the selected index onwards
+    uris = [item.get("uri") for item in unified_queue_items[body.index:] if item.get("uri")]
     if not uris:
-        raise HTTPException(status_code=400, detail="No URIs available from selected index")
+        raise HTTPException(status_code=400, detail="No URIs available from the selected index")
 
     result = spotify_service.start_playback_with_uris(token_info, uris)
     if isinstance(result, dict) and result.get("error"):
         raise HTTPException(status_code=400, detail=result["error"])
 
-    return {"message": f"Playing from queue index {body.index}", "count": len(uris)}
+    return {"message": f"Playing from unified queue index {body.index}", "count": len(uris)}

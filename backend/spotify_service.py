@@ -12,11 +12,26 @@ from spotipy.oauth2 import SpotifyOAuth
 
 def get_spotify_oauth():
     """Creates and returns a SpotifyOAuth object."""
+    
+    # Comprehensive scope for all app functionalities
+    scope = (
+        "streaming "
+        "user-read-email "
+        "user-read-private "
+        "user-read-playback-state "
+        "user-modify-playback-state "
+        "user-read-currently-playing "
+        "user-top-read "
+        "playlist-modify-private "
+        "playlist-read-private "
+        "user-library-modify"
+    )
+    
     return SpotifyOAuth(
         client_id=os.getenv("SPOTIPY_CLIENT_ID"),
         client_secret=os.getenv("SPOTIPY_CLIENT_SECRET"),
         redirect_uri=os.getenv("SPOTIPY_REDIRECT_URI"),
-        scope="streaming user-read-email user-read-private user-read-playback-state user-modify-playback-state user-read-currently-playing",
+        scope=scope,
         cache_handler=None
     )
 

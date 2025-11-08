@@ -349,6 +349,16 @@ def previous_track(token_info: dict):
         return {"error": f"Error skipping to previous track: {e}"}
 
 
+def transfer_playback(token_info: dict, device_id: str):
+    """Transfers playback to a new device and ensures playback starts."""
+    sp = spotipy.Spotify(auth=token_info["access_token"])
+    try:
+        sp.transfer_playback(device_id=device_id, force_play=True)
+        return {"message": f"Playback transferred to device {device_id}."}
+    except Exception as e:
+        return {"error": f"Error transferring playback: {e}"}
+
+
 def validate_track_uri(token_info: dict, track_uri: str) -> dict:
     """
     Validates if a Spotify track URI exists and is accessible.

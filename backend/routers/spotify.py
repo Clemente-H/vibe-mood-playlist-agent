@@ -47,12 +47,19 @@ class TrackUriRequest(BaseModel):
 class PlayFromQueueBody(BaseModel):
     index: int
 
+class TransferPlaybackRequest(BaseModel):
+    device_id: str
+
 # --- Endpoints ---
 
 @router.post("/play")
 async def play_song(play_request: PlayRequest, token_info: dict = Depends(get_valid_token)):
     spotify_service.add_to_queue(token_info, play_request.song_uri)
     return spotify_service.start_playback(token_info)
+
+@router.post("/transfer_playback")
+async def transfer_playback(transfer_request: TransferPlaybackRequest, token_info: dict = Depends(get_valid_token)):
+    return spotify_service.transfer_playback(token_info, transfer_request.device_id)
 
 @router.post("/pause")
 async def pause_playback(token_info: dict = Depends(get_valid_token)):

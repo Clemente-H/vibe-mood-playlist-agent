@@ -1,0 +1,21 @@
+# Git
+.git
+.gitignore
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Environment files
+.env
+.env.*
+
+# Virtual environment
+.venv
+venv/
+env/
+
+# Local databases
+data_spotify/user_dbs/*.duckdb

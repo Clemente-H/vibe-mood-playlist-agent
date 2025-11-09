@@ -128,15 +128,15 @@ def _preprocess_user_context(context: dict) -> dict:
         ]
 
     # Process recently played
-    if context.get("recently_played"):
-        processed_context["recently_played"] = [
-            {
-                "name": item["track"]["name"],
-                "artist": item["track"]["artists"][0]["name"],
-                "uri": item["track"]["uri"],
-            }
-            for item in context["recently_played"]
-        ]
+    # if context.get("recently_played"):
+    #     processed_context["recently_played"] = [
+    #         {
+    #             "name": item["track"]["name"],
+    #             "artist": item["track"]["artists"][0]["name"],
+    #             "uri": item["track"]["uri"],
+    #         }
+    #         for item in context["recently_played"]
+    #     ]
 
     # Process playlists (tracks already fetched and formatted)
     if context.get("playlists"):

@@ -36,7 +36,7 @@ is_production = FRONTEND_URL.startswith("https://")
 app.add_middleware(
     SessionMiddleware,
     secret_key=os.getenv("SECRET_KEY"),
-    same_site="lax",
+    same_site="none" if is_production else "lax",  # "none" required for cross-domain in production
     https_only=is_production
 )
 

@@ -13,13 +13,18 @@ RUN mkdir -p /root/.kaggle
 # Copiar el script de descarga
 COPY utils/kaggle_dataset_download.py ./utils/
 
-# Descargar dataset usando secret de Kaggle
-# El secret se monta desde Cloud Build usando BuildKit
-RUN --mount=type=secret,id=kaggle_json \
-    cat /run/secrets/kaggle_json > /root/.kaggle/kaggle.json && \
-    chmod 600 /root/.kaggle/kaggle.json && \
-    python -m utils.kaggle_dataset_download && \
-    rm -f /root/.kaggle/kaggle.json
+# Este ARG se pasará durante el build desde Cloud Build
+ARG KAGGLE_JSON_CONTENT=""
+
+# Descargar dataset usando credentials
+RUN if [ -n "$KAGGLE_JSON_CONTENT" ]; then \
+        echo "$KAGGLE_JSON_CONTENT" > /root/.kaggle/kaggle.json && \
+        chmod 600 /root/.kaggle/kaggle.json && \
+        python -m utils.kaggle_dataset_download && \
+        rm -f /root/.kaggle/kaggle.json; \
+    else \
+        echo "WARNING: KAGGLE_JSON_CONTENT not provided, skipping dataset download"; \
+    fi
 
 # --- Etapa 2: Imagen Final de Producción ---
 # Esta es la imagen que se ejecutará en Cloud Run.

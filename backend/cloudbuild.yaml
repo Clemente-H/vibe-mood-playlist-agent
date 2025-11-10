@@ -1,23 +1,16 @@
 steps:
-  # Build the container image with Docker Buildx (BuildKit)
+  # Build the container image with Kaggle credentials as build arg
   - name: 'gcr.io/cloud-builders/docker'
     entrypoint: 'bash'
     args:
       - '-c'
       - |
-        # Create temp file for kaggle credentials
-        echo "$$KAGGLE_CREDENTIALS" > /workspace/kaggle.json
-
-        # Enable BuildKit and build with secret mount
-        export DOCKER_BUILDKIT=1
+        # Build with kaggle credentials passed as build arg
         docker build \
-          --secret id=kaggle_json,src=/workspace/kaggle.json \
+          --build-arg KAGGLE_JSON_CONTENT="$$KAGGLE_CREDENTIALS" \
           -t us-central1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/vibe-mood-playlist-agent/backend:$COMMIT_SHA \
           -f Dockerfile \
           .
-
-        # Clean up
-        rm -f /workspace/kaggle.json
     dir: 'backend'
     secretEnv: ['KAGGLE_CREDENTIALS']
 

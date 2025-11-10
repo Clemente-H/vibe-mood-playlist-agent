@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 import os
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.middleware.cors import CORSMiddleware
+import os
 
 # Import the new router
 from routers import spotify
@@ -17,10 +18,13 @@ load_dotenv()
 
 app = FastAPI()
 
+# Get frontend URL from environment variable, with a default for local dev
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://127.0.0.1:3000")
+
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://127.0.0.1:3000"],
+    allow_origins=[FRONTEND_URL], # Use the variable here
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -136,7 +140,7 @@ async def chat(request: Request, chat_request: ChatRequest):
         if validation_result["invalid_tracks"]:
             response["warning"] = f"{len(validation_result['invalid_tracks'])} tracks were invalid and skipped"
             response["invalid_uris"] = validation_result["invalid_tracks"][:5]
-        
+            
         return response
     else:
         return {

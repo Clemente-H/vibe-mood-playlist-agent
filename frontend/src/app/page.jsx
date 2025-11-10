@@ -110,18 +110,39 @@ export default function VibeFM() {
   };
 
   useEffect(() => {
-    
+
     const hasVisited = localStorage.getItem("hasVisited")
     if (hasVisited) {
       setShowWelcomeMessage(false);
     }
 
-    api.get("/token")
-      .then((res) => {
+    // Check if token is in URL (from OAuth callback)
+    const urlParams = new URLSearchParams(window.location.search);
+    const tokenFromUrl = urlParams.get('token');
+
+    if (tokenFromUrl) {
+      // Save token and clean URL
+      localStorage.setItem('spotify_token', tokenFromUrl);
+      setToken(tokenFromUrl);
+      setShowSpotifyModal(false);
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else {
+      // Try to get token from localStorage
+      const savedToken = localStorage.getItem('spotify_token');
+      if (savedToken) {
+        setToken(savedToken);
         setShowSpotifyModal(false);
-        setToken(res.data.access_token);
-      })
-      .catch(() => setShowSpotifyModal(true));
+      } else {
+        // Fallback: try session-based auth
+        api.get("/token")
+          .then((res) => {
+            setShowSpotifyModal(false);
+            setToken(res.data.access_token);
+            localStorage.setItem('spotify_token', res.data.access_token);
+          })
+          .catch(() => setShowSpotifyModal(true));
+      }
+    }
   }, []);
 
   return (

@@ -61,17 +61,39 @@ def login():
 @app.get("/callback")
 def callback(request: Request):
     code = request.query_params.get("code")
+    if not code:
+        # User denied access
+        return RedirectResponse(f"{FRONTEND_URL}/")
+
     token_info = get_access_token(code)
     request.session["token_info"] = token_info
-    # Redirect to the frontend, which will now have the session cookie
-    return RedirectResponse(f"{FRONTEND_URL}/")
+
+    # For cross-domain, pass access token to frontend
+    # Frontend will send it back in subsequent requests
+    access_token = token_info.get("access_token", "")
+    return RedirectResponse(f"{FRONTEND_URL}/?token={access_token}")
+
+def get_token_info(request: Request) -> dict:
+    """Get token info from session or Authorization header"""
+    # Try session first
+    token_info = request.session.get("token_info")
+    if token_info:
+        return token_info
+
+    # Try Authorization header
+    auth_header = request.headers.get("Authorization")
+    if auth_header and auth_header.startswith("Bearer "):
+        access_token = auth_header.replace("Bearer ", "")
+        return {"access_token": access_token}
+
+    return None
 
 @app.get("/token")
 def me(request: Request):
-    token_info = request.session.get("token_info")
+    token_info = get_token_info(request)
     if not token_info:
         raise HTTPException(status_code=401, detail="Not logged in")
-    
+
     return {'access_token': token_info.get("access_token")}
 
 @app.get("/logout")
@@ -83,10 +105,10 @@ def logout(request: Request):
 async def chat(request: Request, chat_request: ChatRequest):
     import spotipy
     from spotify_service import validate_and_add_tracks_to_queue
-    
-    token_info = request.session.get("token_info")
+
+    token_info = get_token_info(request)
     if not token_info:
-        return {"error": "User not authenticated"}
+        raise HTTPException(status_code=401, detail="User not authenticated")
 
     # Get user ID from Spotify
     sp = spotipy.Spotify(auth=token_info["access_token"])

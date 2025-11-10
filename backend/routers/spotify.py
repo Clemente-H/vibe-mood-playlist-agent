@@ -14,21 +14,32 @@ router = APIRouter(
 
 async def get_valid_token(request: Request) -> dict:
     """
-    Dependency to get token_info from session, refresh it if needed,
-    and store it back in the session.
+    Dependency to get token_info from session or Authorization header,
+    refresh it if needed, and store it back in the session.
     """
+    # Try session first
     token_info = request.session.get("token_info")
+
+    # Try Authorization header if session is empty
     if not token_info:
-        raise HTTPException(status_code=401, detail="User not authenticated")
-    
-    # Refresh the token if needed
-    refreshed_token_info = spotify_service.refresh_token_if_needed(token_info)
-    
-    # If the token was refreshed, update the session
-    if refreshed_token_info != token_info:
-        request.session["token_info"] = refreshed_token_info
-        
-    return refreshed_token_info
+        auth_header = request.headers.get("Authorization")
+        if auth_header and auth_header.startswith("Bearer "):
+            access_token = auth_header.replace("Bearer ", "")
+            token_info = {"access_token": access_token}
+        else:
+            raise HTTPException(status_code=401, detail="User not authenticated")
+
+    # Refresh the token if needed (only for session-based tokens with refresh_token)
+    if "refresh_token" in token_info:
+        refreshed_token_info = spotify_service.refresh_token_if_needed(token_info)
+
+        # If the token was refreshed, update the session
+        if refreshed_token_info != token_info:
+            request.session["token_info"] = refreshed_token_info
+
+        return refreshed_token_info
+
+    return token_info
 
 # --- Request Models ---
 

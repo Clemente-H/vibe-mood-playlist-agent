@@ -1,29 +1,37 @@
-# Use an official Python runtime as a parent image
-FROM python:3.11-slim
+# --- Etapa 1: Descargador ---
+# Esta etapa solo se usa para descargar el dataset de forma segura.
+FROM python:3.11-slim AS downloader
 
-# Set environment variables to prevent writing .pyc files and to buffer output
-ENV PYTHONDONTWRITEBYTECODE 1
-ENV PYTHONUNBUFFERED 1
-
-# Set the working directory in the container
+# Instalar dependencias
 WORKDIR /app
-
-# Copy the database file
-COPY data_spotify/spotify.sqlite ./data_spotify/spotify.sqlite
-
-# Copy the dependencies file to the working directory
 COPY requirements.txt .
-
-# Install any needed packages specified in requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the rest of the application's code to the working directory
+# Crear el directorio para las credenciales de Kaggle
+RUN mkdir -p /root/.kaggle
+
+# Montar el secreto de kaggle.json y ejecutar el script de descarga
+# Cloud Build reemplazará esto con el contenido de tu secreto.
+COPY utils/kaggle_dataset_download.py ./utils/
+RUN --mount=type=secret,id=kaggle_json,target=/root/.kaggle/kaggle.json \
+    python -m utils.kaggle_dataset_download
+
+# --- Etapa 2: Imagen Final de Producción ---
+# Esta es la imagen que se ejecutará en Cloud Run.
+FROM python:3.11-slim
+
+ENV PYTHONDONTWRITEBYTECODE 1
+ENV PYTHONUNBUFFERED 1
+WORKDIR /app
+
+# Copiar solo el dataset descargado de la etapa anterior.
+# Las credenciales de Kaggle NO se copian aquí.
+COPY --from=downloader /app/data_spotify/spotify.sqlite ./data_spotify/spotify.sqlite
+
+# Instalar dependencias y copiar el código de la aplicación
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
-# Expose the port the app runs on
 EXPOSE 8080
-
-# Define the command to run the application
-# Use 0.0.0.0 to make it accessible from outside the container
-# The PORT environment variable is automatically set by Cloud Run.
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080"]

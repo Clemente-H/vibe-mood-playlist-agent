@@ -5,7 +5,7 @@ import { Play, Pause, SkipForward, SkipBack, Volume2, Volume1, VolumeX } from "l
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Slider } from "@/components/ui/slider"
-import { motion } from "framer-motion"
+import { motion , AnimatePresence } from "framer-motion"
 import api from "@/lib/api";
 
 // Track template
@@ -15,7 +15,7 @@ const TRACK_TEMPLATE = {
   artists: [{ name: "" }],
 };
 
-export function MusicPlayer(props) {
+export function MusicPlayer({ queue , token , updateDevice , updateQueue }) {
 
   const playerRef = useRef(null);
   const initializedRef = useRef(false); // prevent double useEffect execution in dev
@@ -23,15 +23,12 @@ export function MusicPlayer(props) {
   const tickRef = useRef(null);
   const baseProgressRef = useRef(0);   // seconds in the last real sync
   const lastSyncTsRef = useRef(0);     // timestamp ms of the last real sync
-  const isQueueLoadedRef = useRef(false); // prevent double
   const lastTrackUriRef = useRef(null);
 
 
   const [isActive, setIsActive] = useState(false);
   const [isPaused, setIsPaused] = useState(true);
   const [currentTrack, setCurrentTrack] = useState(TRACK_TEMPLATE);
-  const [playerVolume, setPlayerVolume] = useState(0);
-  //const [queue, setQueue] = useState([]);
 
   const [currentTime, setCurrentTime] = useState(0);      // seconds
   const [totalDuration, setTotalDuration] = useState(0);  // seconds
@@ -48,36 +45,26 @@ export function MusicPlayer(props) {
   const playFromIndex = async (index) => {
     try{
       await api.post('/spotify/play_from_queue', { index });
-      loadQueue();
+      
     } catch (err) {
       console.error("Error playing from queue:", err);
     }
   }
 
-  // const loadQueue = async () => {
-  //   try {
-  //     const { data } = await api.get("/spotify/queue");
-  //     setQueue(data.queue || []);
-  //     isQueueLoadedRef.current = true;
-  //   } catch (e) {
-  //     console.warn("Error loading queue", e);
-  //   }
-  // };
+  const shouldRefreshQueue = (state) => {
+    if (!state) return false;
 
-  // const shouldRefreshQueue = (state) => {
-  //   if (!state) return false;
+    const currentUri = state.track_window?.current_track?.uri;
+    if (!currentUri) return false;
 
-  //   const currentUri = state.track_window?.current_track?.uri;
-  //   if (!currentUri) return false;
+    // si la canción no cambió → no refrescar
+    if (currentUri === lastTrackUriRef.current) return false;
 
-  //   // si la canción no cambió → no refrescar
-  //   if (currentUri === lastTrackUriRef.current) return false;
+    // actualizar referencia de última canción
+    lastTrackUriRef.current = currentUri;
 
-  //   // actualizar referencia de última canción
-  //   lastTrackUriRef.current = currentUri;
-
-  //   return true;
-  // };
+    return true;
+  };
 
   useEffect(() => {
 
@@ -97,18 +84,16 @@ export function MusicPlayer(props) {
 
       const player = new window.Spotify.Player({
         name: "VibeFM",
-        getOAuthToken: async (cb) => await cb(props.token),
-        volume: 0.2,
+        getOAuthToken: async (cb) => await cb(token),
+        volume: 0.15,
       });
 
       playerRef.current = player;
 
-      setPlayerVolume(player.getVolume());
-
       // Listeners
       const onReady = async ({ device_id }) => {
         console.log("Ready with Device ID", device_id);
-        props.updateDevice(device_id);
+        updateDevice(device_id);
       };
 
       const onNotReady = ({ device_id }) => {
@@ -129,6 +114,10 @@ export function MusicPlayer(props) {
         setTotalDuration(durationSec);
         setCurrentTime(positionSec);
         setIsPaused(state.paused);
+
+        if(shouldRefreshQueue(state)){
+          updateQueue();
+        }
 
         // Initial reference for local tick
         baseProgressRef.current = positionSec;
@@ -233,7 +222,7 @@ export function MusicPlayer(props) {
       initial={{ opacity: 0, scale: 0.8 }}
       animate={{ opacity: 1, scale: 1, transition: { duration: 1 , delay: 1.5 } }}
     >
-      <div className="rounded-lg border border-white/20 bg-white/10 p-4 backdrop-blur-lg sm:p-6">
+      <div className="rounded-lg border border-white/20 bg-white/10 p-4 backdrop-blur-lg sm:p-6 transition-all">
 
         <div className="mb-4 flex justify-center sm:mb-6">
           <img
@@ -296,26 +285,32 @@ export function MusicPlayer(props) {
 
         {/* Queue */}
         {queue.length > 0?
-          <div className="border-t border-white/20 pt-3 sm:pt-4">
-            <h4 className="mb-2 text-xs font-bold uppercase tracking-wide text-white/70 sm:mb-3 sm:text-sm">Up Next</h4>
-            <ScrollArea className="h-40 sm:h-48">
-              <div className="space-y-2">
-                {props.queue.map((song, i) => (
-                  <div
-                    key={`${song.id}-${i}`}
-                    className="flex items-center justify-between rounded-md p-2 transition-colors hover:bg-white/10 sm:p-3 cursor-pointer"
-                    onClick={() => playFromIndex(i)}
-                  >
-                    <div className="flex-1">
-                      <p className="text-xs font-bold text-white sm:text-sm">{song.name}</p>
-                      <p className="text-xs font-semibold text-white/60">{song.artists.map(a => a.name).join(", ")}</p>
+          <AnimatePresence>
+            <motion.div
+              className="border-t border-white/20 pt-3 sm:pt-4"
+              initial={{opacity: 0.8}}
+              animate={{opacity: 1.0}}
+            >
+              <h4 className="mb-2 text-xs font-bold uppercase tracking-wide text-white/70 sm:mb-3 sm:text-sm">Up Next</h4>
+              <ScrollArea className="h-40 sm:h-48">
+                <div className="space-y-2">
+                  {queue.map((song, i) => (
+                    <div
+                      key={`${song.id}-${i}`}
+                      className="flex items-center justify-between rounded-md p-2 transition-colors hover:bg-white/10 sm:p-3 cursor-pointer"
+                      onClick={() => playFromIndex(i)}
+                    >
+                      <div className="flex-1">
+                        <p className="text-xs font-bold text-white sm:text-sm">{song.name}</p>
+                        <p className="text-xs font-semibold text-white/60">{song.artists.map(a => a.name).join(", ")}</p>
+                      </div>
+                      <span className="text-xs font-semibold text-white/60">{formatTime(song.duration_ms/1000)}</span>
                     </div>
-                    <span className="text-xs font-semibold text-white/60">{formatTime(song.duration_ms/1000)}</span>
-                  </div>
-                ))}
-              </div>
-            </ScrollArea>
-          </div>
+                  ))}
+                </div>
+              </ScrollArea>
+            </motion.div>
+          </AnimatePresence>
         :
           <div className="border-t border-white/20 pt-3 sm:pt-4">
             <h4 className="mb-2 text-xs font-bold uppercase tracking-wide text-white/70 sm:mb-3 sm:text-sm">No active queue </h4>

@@ -21,7 +21,6 @@ export default function VibeFM() {
   const [agentMessage, setAgentMessage] = useState('');
   const [validTracks, setValidTracks] = useState(0);
   const [device, setDevice] = useState('');
-  const [text, setText] = useState("");
   const [gradientColors, setGradientColors] = useState(["#51a2ff", "#ad46ff", "#f6339a", "#51a2ff", "#ad46ff"]);
   const [showWelcomeMessage, setShowWelcomeMessage] = useState(true);
   const [showEmotionGuide, setShowEmotionGuide] = useState(true);
@@ -39,6 +38,30 @@ export default function VibeFM() {
     });
   };
 
+  const handleDevice = async (device) => {
+    setDevice(device);
+    // Transfer playback session to the web browser
+    await api.post("/spotify/transfer_playback", { "device_id": device })
+    .catch((error) => {
+      console.log(error);
+    });
+  };
+
+  const handleUpdateQueue = async () => {
+    await loadQueue(validTracks-1);
+    setValidTracks(validTracks-1);
+  }
+
+  const loadQueue = async (tracks) => {
+    // Get actual queue
+    await api.get("/spotify/queue")
+      .then((res) => {
+        setQueue(res.data.queue.slice(0,tracks));
+      })
+      .catch((error) => {
+        console.log(error);
+      });
+  }
 
   const handleMessage = async (message) => {
  
@@ -55,29 +78,15 @@ export default function VibeFM() {
       await api.post('/chat', { message })
       .then((res) => {
         setAgentMessage(res.data.message);
-        setValidTracks(res.data.valid_tracks);
+        setValidTracks(res.data.valid_tracks + 1 + validTracks);
+        loadQueue(res.data.valid_tracks + 1 + validTracks);
       })
       .catch((error) => {
         console.log(error);
         setAgentMessage("An error has occurred with our service. Please try again.");
       });
 
-      // Get actual queue
-      await api.get("/spotify/queue")
-      .then((res) => {
-        setQueue(res.data.queue.slice(0,validTracks));
-      })
-      .catch((error) => {
-        console.log(error);
-      });
-
-      // Transfer playback session to the web browser
-      await api.post("/spotify/transfer_playback", { "device_id": device })
-      .catch((error) => {
-        console.log(device);
-      });
-
-      toast.success(`Thats it! ${agentMessage}`, { id });
+      toast.success(`Thats it! I hope you like it c:`, { id });
 
     }
     catch (error){
@@ -212,7 +221,7 @@ export default function VibeFM() {
                     <EmotionGuide />
                   </motion.div>
                 :
-                  <MusicPlayer updateDevice={setDevice} token={token} queue={queue} key="music-player"/>
+                  <MusicPlayer updateDevice={handleDevice} updateQueue={handleUpdateQueue} token={token} queue={queue} key="music-player"/>
               }
               <ChatDock messageHandler={handleMessage} key="docked-chat"/>
             </AnimatePresence>

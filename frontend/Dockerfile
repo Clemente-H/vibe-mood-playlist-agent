@@ -1,6 +1,11 @@
 # Etapa 1: Construcción
 FROM node:20-alpine AS builder
 WORKDIR /app
+
+# Build arg para Next.js
+ARG NEXT_PUBLIC_API_BASE
+ENV NEXT_PUBLIC_API_BASE=$NEXT_PUBLIC_API_BASE
+
 COPY . .
 RUN npm install
 RUN npm run build

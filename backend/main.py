@@ -5,7 +5,6 @@ import json
 
 from dotenv import load_dotenv
 import os
-from starlette.middleware.sessions import SessionMiddleware
 from starlette.middleware.cors import CORSMiddleware
 import os
 
@@ -30,15 +29,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Add session middleware
-# Use https_only in production (when FRONTEND_URL uses https)
-is_production = FRONTEND_URL.startswith("https://")
-app.add_middleware(
-    SessionMiddleware,
-    secret_key=os.getenv("SECRET_KEY"),
-    same_site="none" if is_production else "lax",  # "none" required for cross-domain in production
-    https_only=is_production
-)
+# Session middleware removed - using token-based auth only to avoid shared sessions
+# is_production = FRONTEND_URL.startswith("https://")
 
 
 
@@ -66,21 +58,14 @@ def callback(request: Request):
         return RedirectResponse(f"{FRONTEND_URL}/")
 
     token_info = get_access_token(code)
-    request.session["token_info"] = token_info
-
-    # For cross-domain, pass access token to frontend
-    # Frontend will send it back in subsequent requests
+    # Don't store in session - pass to frontend via URL
+    # Frontend will store in localStorage (per-user)
     access_token = token_info.get("access_token", "")
     return RedirectResponse(f"{FRONTEND_URL}/?token={access_token}")
 
 def get_token_info(request: Request) -> dict:
-    """Get token info from session or Authorization header"""
-    # Try session first
-    token_info = request.session.get("token_info")
-    if token_info:
-        return token_info
-
-    # Try Authorization header
+    """Get token info from Authorization header only"""
+    # Only use Authorization header (no sessions)
     auth_header = request.headers.get("Authorization")
     if auth_header and auth_header.startswith("Bearer "):
         access_token = auth_header.replace("Bearer ", "")
@@ -98,8 +83,8 @@ def me(request: Request):
 
 @app.get("/logout")
 def logout(request: Request):
-    request.session.clear()
-    return RedirectResponse("/")
+    # No session to clear - client handles logout
+    return {"message": "Logout successful"}
 
 @app.post("/chat")
 async def chat(request: Request, chat_request: ChatRequest):

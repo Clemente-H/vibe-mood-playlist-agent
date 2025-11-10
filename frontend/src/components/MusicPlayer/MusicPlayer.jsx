@@ -31,7 +31,7 @@ export function MusicPlayer(props) {
   const [isPaused, setIsPaused] = useState(true);
   const [currentTrack, setCurrentTrack] = useState(TRACK_TEMPLATE);
   const [playerVolume, setPlayerVolume] = useState(0);
-  const [queue, setQueue] = useState([]);
+  //const [queue, setQueue] = useState([]);
 
   const [currentTime, setCurrentTime] = useState(0);      // seconds
   const [totalDuration, setTotalDuration] = useState(0);  // seconds
@@ -54,31 +54,30 @@ export function MusicPlayer(props) {
     }
   }
 
-  const loadQueue = async () => {
-    try {
-      const { data } = await api.get("/spotify/queue");
-      console.log(data.queue);
-      setQueue(data.queue || []);
-      isQueueLoadedRef.current = true;
-    } catch (e) {
-      console.warn("Error loading queue", e);
-    }
-  };
+  // const loadQueue = async () => {
+  //   try {
+  //     const { data } = await api.get("/spotify/queue");
+  //     setQueue(data.queue || []);
+  //     isQueueLoadedRef.current = true;
+  //   } catch (e) {
+  //     console.warn("Error loading queue", e);
+  //   }
+  // };
 
-  const shouldRefreshQueue = (state) => {
-    if (!state) return false;
+  // const shouldRefreshQueue = (state) => {
+  //   if (!state) return false;
 
-    const currentUri = state.track_window?.current_track?.uri;
-    if (!currentUri) return false;
+  //   const currentUri = state.track_window?.current_track?.uri;
+  //   if (!currentUri) return false;
 
-    // si la canción no cambió → no refrescar
-    if (currentUri === lastTrackUriRef.current) return false;
+  //   // si la canción no cambió → no refrescar
+  //   if (currentUri === lastTrackUriRef.current) return false;
 
-    // actualizar referencia de última canción
-    lastTrackUriRef.current = currentUri;
+  //   // actualizar referencia de última canción
+  //   lastTrackUriRef.current = currentUri;
 
-    return true;
-  };
+  //   return true;
+  // };
 
   useEffect(() => {
 
@@ -109,6 +108,7 @@ export function MusicPlayer(props) {
       // Listeners
       const onReady = async ({ device_id }) => {
         console.log("Ready with Device ID", device_id);
+        props.updateDevice(device_id);
       };
 
       const onNotReady = ({ device_id }) => {
@@ -138,14 +138,9 @@ export function MusicPlayer(props) {
         const currentState = await player.getCurrentState();
         setIsActive(!!currentState);
 
-        if (isQueueLoadedRef.current){
-          if (shouldRefreshQueue(state)) {
-            loadQueue();
-          }
-        }
-        else{
-          loadQueue();
-        }
+        // if(shouldRefreshQueue(state)){
+        //   loadQueue();
+        // }
         
         // Restart the tick when paused
         if (tickRef.current) {
@@ -218,13 +213,15 @@ export function MusicPlayer(props) {
 
   if(!isActive){
     return (
-      <>
-        <div className="fixed left-1/2 top-1/2 z-10 w-full max-w-sm -translate-x-1/2 -translate-y-1/2 px-4 sm:max-w-md sm:px-6">
-          <div className="mb-3 text-center sm:mb-4">
-            <b className="text-xs font-semibold text-white/70 sm:text-sm"> Instance not active. Transfer your playback using your Spotify app </b>
-          </div>
+      <motion.div
+        className="fixed left-1/2 top-1/2 z-10 w-full max-w-sm -translate-x-1/2 -translate-y-1/2 px-4 sm:max-w-md sm:px-6"
+        initial={{ opacity: 0, scale: 0.8 }}
+        animate={{ opacity: 1, scale: 1, transition: { duration: 1 , delay: 1.5 } }}
+      >
+        <div className="mb-3 text-center sm:mb-4">
+          <b className="text-xs font-semibold text-white/70 sm:text-sm"> Instance not active. Transfer your playback using your Spotify app </b>
         </div>
-      </>
+      </motion.div>
     )
   }
   
@@ -303,7 +300,7 @@ export function MusicPlayer(props) {
             <h4 className="mb-2 text-xs font-bold uppercase tracking-wide text-white/70 sm:mb-3 sm:text-sm">Up Next</h4>
             <ScrollArea className="h-40 sm:h-48">
               <div className="space-y-2">
-                {queue.map((song, i) => (
+                {props.queue.map((song, i) => (
                   <div
                     key={`${song.id}-${i}`}
                     className="flex items-center justify-between rounded-md p-2 transition-colors hover:bg-white/10 sm:p-3 cursor-pointer"

@@ -21,6 +21,7 @@ def get_spotify_oauth():
         "user-read-playback-state "
         "user-modify-playback-state "
         "user-read-currently-playing "
+        "user-read-recently-played "
         "user-top-read "
         "playlist-modify-private "
         "playlist-read-private "

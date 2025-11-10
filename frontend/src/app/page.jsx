@@ -8,6 +8,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { SpotifyModal } from "@/components/SpotifyLogger/SpotifyLogger";
 import { EmotionGuide } from "@/components/EmotionsGuide/EmotionsGuide";
+import { toast } from "sonner"
 import api from "@/lib/api";
 
 export default function VibeFM() {
@@ -16,6 +17,10 @@ export default function VibeFM() {
 
   const [theme, setTheme] = useState("light");
   const [token, setToken] = useState('');
+  const [queue, setQueue] = useState('');
+  const [agentMessage, setAgentMessage] = useState('');
+  const [validTracks, setValidTracks] = useState(0);
+  const [device, setDevice] = useState('');
   const [text, setText] = useState("");
   const [gradientColors, setGradientColors] = useState(["#51a2ff", "#ad46ff", "#f6339a", "#51a2ff", "#ad46ff"]);
   const [showWelcomeMessage, setShowWelcomeMessage] = useState(true);
@@ -34,12 +39,52 @@ export default function VibeFM() {
     });
   };
 
-  const handleMessage = (message) => {
-    setText(message);
-    newGradientColor();
+
+  const handleMessage = async (message) => {
+ 
+    // newGradientColor();
     if (showEmotionGuide) {
       setShowEmotionGuide(false);
     }
+
+    const id = toast.loading("Generating your vibe playlist…");
+    
+    try {
+
+      // Generate songs queue
+      await api.post('/chat', { message })
+      .then((res) => {
+        setAgentMessage(res.data.message);
+        setValidTracks(res.data.valid_tracks);
+      })
+      .catch((error) => {
+        console.log(error);
+        setAgentMessage("An error has occurred with our service. Please try again.");
+      });
+
+      // Get actual queue
+      await api.get("/spotify/queue")
+      .then((res) => {
+        setQueue(res.data.queue.slice(0,validTracks));
+      })
+      .catch((error) => {
+        console.log(error);
+      });
+
+      // Transfer playback session to the web browser
+      await api.post("/spotify/transfer_playback", { "device_id": device })
+      .catch((error) => {
+        console.log(device);
+      });
+
+      toast.success(`Thats it! ${agentMessage}`, { id });
+
+    }
+    catch (error){
+      console.log(error);
+      toast.error("An error have just happened :c Pls try again", { id });
+    }
+    
   };
 
   const handleSpotifyLogin = () => {
@@ -167,7 +212,7 @@ export default function VibeFM() {
                     <EmotionGuide />
                   </motion.div>
                 :
-                  <MusicPlayer token={token} key="music-player"/>
+                  <MusicPlayer updateDevice={setDevice} token={token} queue={queue} key="music-player"/>
               }
               <ChatDock messageHandler={handleMessage} key="docked-chat"/>
             </AnimatePresence>

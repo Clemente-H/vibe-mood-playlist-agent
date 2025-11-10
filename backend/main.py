@@ -31,11 +31,13 @@ app.add_middleware(
 )
 
 # Add session middleware
+# Use https_only in production (when FRONTEND_URL uses https)
+is_production = FRONTEND_URL.startswith("https://")
 app.add_middleware(
     SessionMiddleware,
     secret_key=os.getenv("SECRET_KEY"),
     same_site="lax",
-    https_only=False
+    https_only=is_production
 )
 
 
@@ -62,7 +64,7 @@ def callback(request: Request):
     token_info = get_access_token(code)
     request.session["token_info"] = token_info
     # Redirect to the frontend, which will now have the session cookie
-    return RedirectResponse("http://127.0.0.1:3000/")
+    return RedirectResponse(f"{FRONTEND_URL}/")
 
 @app.get("/token")
 def me(request: Request):

@@ -16,5 +16,8 @@ COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/static ./.next/static
 
-EXPOSE 3000
-CMD ["node", "server.js"]
+# Cloud Run sets PORT env variable, default to 3000 for local dev
+ENV PORT=3000
+EXPOSE $PORT
+
+CMD ["sh", "-c", "PORT=${PORT} node server.js"]

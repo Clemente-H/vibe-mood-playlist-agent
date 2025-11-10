@@ -10,11 +10,16 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Crear el directorio para las credenciales de Kaggle
 RUN mkdir -p /root/.kaggle
 
-# Montar el secreto de kaggle.json y ejecutar el script de descarga
-# Cloud Build reemplazará esto con el contenido de tu secreto.
+# Copiar el script de descarga
 COPY utils/kaggle_dataset_download.py ./utils/
-RUN --mount=type=secret,id=kaggle_json,target=/root/.kaggle/kaggle.json \
-    python -m utils.kaggle_dataset_download
+
+# Descargar dataset usando secret de Kaggle
+# El secret se monta desde Cloud Build usando BuildKit
+RUN --mount=type=secret,id=kaggle_json \
+    cat /run/secrets/kaggle_json > /root/.kaggle/kaggle.json && \
+    chmod 600 /root/.kaggle/kaggle.json && \
+    python -m utils.kaggle_dataset_download && \
+    rm -f /root/.kaggle/kaggle.json
 
 # --- Etapa 2: Imagen Final de Producción ---
 # Esta es la imagen que se ejecutará en Cloud Run.

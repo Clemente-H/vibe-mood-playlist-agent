@@ -1,4 +1,4 @@
-# Mood Vibe Curator
+# Vibe.FM
 
 > An intelligent music agent that understands your emotions better than Spotify's DJ.
 
@@ -10,7 +10,7 @@
 
 There are moments we can't explain and feelings we can't quite put into words. But music always seems to understand.
 
-**Mood Vibe Curator** is a bridge to that understanding. It's an intelligent music agent that translates your unique emotional state into the perfect playlist. Through a beautiful, interactive interface, you can describe your vibe with words and colors. Our multi-agent system then analyzes your request, blending fresh music discovery with the comfort of your personal favorites, and automatically curates a unique queue for you, right in your Spotify.
+**Vibe.FM** is a bridge to that understanding. It's an intelligent music agent that translates your unique emotional state into the perfect playlist. Through a beautiful, interactive interface, you can describe your vibe with words and colors. Our multi-agent system then analyzes your request, blending fresh music discovery with the comfort of your personal favorites, and automatically curates a unique queue for you, right in your Spotify.
 
 ## Core Features
 
@@ -111,6 +111,5 @@ The backend exposes the following main endpoints:
 ## Team
 
 - Gonzalo
-- Martin
 - Gruñon (Cesar)
 - Clemente

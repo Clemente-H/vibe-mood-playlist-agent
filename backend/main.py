@@ -100,17 +100,9 @@ async def chat(request: Request, chat_request: ChatRequest):
     user_info = sp.current_user()
     user_id = user_info["id"]
 
-    # --- Caching Logic for User Profile ---
-    user_profile = request.session.get("user_profile")
-    if not user_profile:
-        print("--- No profile in session, fetching... ---")
-        user_profile = get_user_context(token_info)
-        request.session["user_profile"] = user_profile
-    else:
-        print("--- Found profile in session cache. ---")
-    # -------------------------------------
-
-    # Always get the real-time queue
+    # Get user profile and queue (no caching without sessions)
+    print("--- Fetching user profile... ---")
+    user_profile = get_user_context(token_info)
     current_queue = get_current_queue(token_info)
 
     # Combine cached profile with real-time queue for full context
